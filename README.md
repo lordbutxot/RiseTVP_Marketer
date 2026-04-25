@@ -127,13 +127,13 @@ El script incluye selección de ships con capacidades calculadas:
 
 **AIR AND SPACE:**
 - E-10 Saint: 109 MT (7 + 6x17)
-- E-11 Saint: 109 MT
+- E-11 Saint: 109 MT (7 + 6x17)
 - P-13 Prowler: 1 MT
 - W-6 Manx: 58 MT (7 + 3x17)
 
 **ONLY AIR:**
 - A-4 Wanderer: 18 MT (1 + 1x17)
-- T-19 Stratomaster: 18 MT
+- T-19 Stratomaster: 18 MT (1 + 1x17)
 
 La capacidad se usa para calcular profit por viaje y viajes necesarios en Trade Routes.
 - **Hoja Cities**: Contiene todas las ciudades con columnas: Location, Category, Commodity Type, Quantity MT, Reserve MT, Selling CR/MT, Buying CR/MT, Maximum MT. Solo incluye filas con Quantity MT > 0 y Selling CR/MT > 0. Formato: encabezados en negrita, filas alternas coloreadas.
