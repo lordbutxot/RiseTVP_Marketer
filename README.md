@@ -1,129 +1,129 @@
-# Automatización OCR a Excel para Rise the Video Province
+# OCR to Excel Automation for Rise the Video Province
 
-Este proyecto automatiza la extracción de texto de imágenes de recursos/commodities para ciudades y EasyDock del juego Rise the Video Province.
+This project automates the extraction of text from resource/commodity images for cities and EasyDock in the game Rise the Video Province.
 
-## Formato de las Imágenes
-- **Ciudades**: Archivos nombrados como `"NombreCiudad_1.png"` (ej. `"Paris_1.png"`).
+## Image Format
+- **Cities**: Files named as `"CityName_1.png"` (e.g. `"Paris_1.png"`).
 - **EasyDock**: `"EasyDock_1.png"`.
-- El script detecta automáticamente si la imagen es de ciudad o de EasyDock y genera una hoja separada por cada prefijo.
+- The script automatically detects if the image is from a city or EasyDock and generates a separate sheet for each prefix.
 
-## Requisitos
-1. **Instalar Tesseract OCR**:
-   - Descarga e instala Tesseract desde: https://github.com/UB-Mannheim/tesseract/wiki
-   - Asegúrate de que esté en el PATH o ajusta la ruta en el script (`pytesseract.pytesseract.tesseract_cmd`).
+## Requirements
+1. **Install Tesseract OCR**:
+   - Download and install Tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
+   - Make sure it's in the PATH or adjust the path in the script (`pytesseract.pytesseract.tesseract_cmd`).
 
-2. **Entorno Python**:
-   - El entorno virtual ya está configurado.
-   - Paquetes instalados: `pytesseract`, `openpyxl`, `pillow`.
+2. **Python Environment**:
+   - The virtual environment is already configured.
+   - Installed packages: `pytesseract`, `openpyxl`, `pillow`.
 
-## Uso
-1. Coloca tus imágenes en la carpeta `images/`.
-2. Ejecuta el script:
+## Usage
+1. Place your images in the `images/` folder.
+2. Run the script:
    ```
    cd "e:\PYTHON\RiseTVP\Script Trade"
-   & "e:/PYTHON/RiseTVP/Script Trade/.venv/Scripts/python.exe" ocr_to_excel.py
+   run_trade.bat
    ```
-   O con presupuesto:
-   ```
-   & "e:/PYTHON/RiseTVP/Script Trade/.venv/Scripts/python.exe" ocr_to_excel.py --budget 50000
-   ```
-3. El script pedirá seleccionar:
-   - Categoría (1 para AIR AND SPACE, 2 para ONLY AIR)
-   - Ship dentro de esa categoría
-   - Punto de origen (1 para Delois Spot, 2 para Kansas)
-   - Si el ship puede ser alquilado, preguntará si deseas alquilarlo o comprarlo
-4. Luego generará `final_trade.xlsx` con las hojas Config, Cities, EasyDock, Opportunities, Trade Routes, Profit Trips y ROI Analysis (si hay presupuesto).
+   The BAT file will prompt you to choose:
+   - 1. Regular Trade: Analyzes all trade opportunities from all cities.
+   - 2. City-Specific Opportunities: Analyzes all trade opportunities AND adds a sheet with opportunities starting from a specific city.
 
-**Con presupuesto:** Se filtra el análisis ROI para mostrar solo oportunidades que quepan en el presupuesto.
+3. Follow the prompts to select ship, containers, rental, origin (if applicable), and budget.
+4. The script will generate `final_trade.xlsx` with the sheets Config, Cities, EasyDock, Opportunities (always included), Opportunities from CityName (only if city mode chosen), Trade Routes, Profit Trips and ROI Analysis (if there is budget).
 
-Los tiempos incluyen:
-- 5 minutos de despegue
-- Tiempo de vuelo entre ciudades (ver tabla abajo)
-- 10 minutos de aterrizaje
+**With budget:** The ROI analysis is filtered to show only opportunities that fit within the budget.
 
-**Desde Delois Spot (tiempo de vuelo en minutos):**
+The times include:
+- 5 minutes takeoff
+- Flight time between cities (see table below)
+- 10 minutes landing
+
+**From Delois Spot (flight time in minutes):**
 - Alphaville: 60 | Comstock: 55 | Deadwood: 60 | Ederar: 60
 - Erie: 60 | Freedom: 150 | Gettysburg: 60 | Kansas: 150
 - Lancaster: 120 | Pimli: 35 | SovietUnion: 60 | Terrazul: 60
 - Sharney 1: 60 | Sharney 2: 120 | Sharney 3: 180
 
-**Desde Kansas (tiempo de vuelo en minutos):**
+**From Kansas (flight time in minutes):**
 - Alphaville: 35 | Comstock: 30 | Deadwood: 25 | Ederar: 20
 - Erie: 45 | Freedom: 15 | Gettysburg: 40 | Lancaster: 50
 - Pimli: 10 | SovietUnion: 65 | Terrazul: 60
 - Sharney 1: 30 | Sharney 2: 60 | Sharney 3: 90
 
-## Recomendación de Viajes Encadenados
+## Chained Trips Recommendation
 
-El sistema automáticamente identifica y recomienda las mejores cadenas de viajes (A → B → C):
-- Después de vender una mercancía en punto B, compra otra en B y vuela a C
-- Las cadenas se ordenan por **eficiencia (CR/hora)** 
-- Útil para maximizar tiempo y ganancia sin volver al origen
-- Se muestran los top 10 cuando generas el Excel
+The system automatically identifies and recommends the best trip chains (A → B → C):
+- After selling a commodity at point B, buy another in B and fly to C
+- Chains are ordered by **efficiency (CR/hour)**
+- Useful to maximize time and profit without returning to origin
+- Top 10 are shown when generating the Excel
 
-## Análisis ROI
+## ROI Analysis
 
-El ROI (Return on Investment) aparece en la hoja **Opportunities** como una columna con código de colores:
-- **ROI = (Ganancia Total / Costo Total) × 100%**
+ROI (Return on Investment) appears in the **Opportunities** sheet as a column with color coding:
+- **ROI = (Total Profit / Total Cost) × 100%**
 
-**Escala de colores:**
-- 🟢 **Verde Oscuro**: ROI > 100% (Excelente retorno)
-- 🟢 **Verde Claro**: ROI 50-100% (Muy bueno)
-- 🟡 **Amarillo**: ROI 20-50% (Aceptable)
-- 🟠 **Naranja**: ROI < 20% (Bajo retorno)
+**Color Scale:**
+- 🟢 **Dark Green**: ROI > 100% (Excellent return)
+- 🟢 **Light Green**: ROI 50-100% (Very good)
+- 🟡 **Yellow**: ROI 20-50% (Acceptable)
+- 🟠 **Orange**: ROI < 20% (Low return)
 
-**Ejemplo:** Si compras 10 MT a 100 CR/MT (costo 1000 CR) y ganas 500 CR, el ROI es 50% (Verde Claro)
+**Example:** If you buy 10 MT at 100 CR/MT (cost 1000 CR) and earn 500 CR, the ROI is 50% (Light Green)
 
-Si usas `--budget`, se filtran las oportunidades que quepan en tu presupuesto inicial.
+If you use `--budget`, opportunities that fit within your initial budget are filtered.
 
-## Archivos de salida
+## Output Files
 
-El script genera `final_trade.xlsx` con las siguientes hojas:
-- **Config**: Ship seleccionado, capacidad, origen, estado (alquilado/comprado)
-- **Cities**: Datos extraídos de ciudades (cantidad, precio, etc.)
-- **EasyDock**: Datos extraídos de EasyDock
-- **Opportunities**: Rutas de una sola parada con tiempos de vuelo y **ROI (%)**
-- **Trade Routes**: Rutas agrupadas por destino con eficiencia
-- **Profit Trips**: Cadenas de viajes encadenadas (A → B → C) ordenadas por eficiencia (CR/hora)
+The script generates `final_trade.xlsx` with the following sheets:
+- **Config**: Selected ship, capacity, origin, status (rented/purchased)
+- **Cities**: Extracted data from cities (quantity, price, etc.)
+- **EasyDock**: Extracted data from EasyDock
+- **Opportunities**: Single-stop routes with flight times and **ROI (%)**
+- **Trade Routes**: Routes grouped by destination with efficiency
+- **Profit Trips**: Chained trip routes (A → B → C) ordered by efficiency (CR/hour)
 
 
-## Naves y Costos de Alquiler
+## Ships and Rental Costs
+
+All ships can be rented. Known rental costs:
 
 **AIR AND SPACE:**
-- E-10 Saint: No rentable (comprado solo)
-- E-11 Saint: No rentable (comprado solo)
-- P-13 Prowler: No rentable (comprado solo)
-- W-6 Manx: No rentable (comprado solo)
+- E-10 Saint: Unknown rental cost
+- E-11 Saint: Unknown rental cost
+- P-13 Prowler: Unknown rental cost
+- W-6 Manx: Unknown rental cost
 
 **ONLY AIR:**
-- A-4 Wanderer: 1359 CR/día (alquilable o comprado)
-- T-19 Stratomaster: 2264 CR/día (alquilable o comprado)
+- A-4 Wanderer: Unknown rental cost (previously 1359 CR/day)
+- T-19 Stratomaster: Unknown rental cost (previously 2264 CR/day)
 
-Un día en el juego = 14 horas.
+If you choose to rent a ship with unknown cost, the script will ask you to enter the rental cost per day.
 
-Si eliges alquilar, la hoja Config mostrará el profit mínimo necesario por viaje para cubrir el costo de alquiler diario. La hoja Opportunities tendrá una columna "Covers Rental?" indicando qué trades generan suficiente profit para cubrir el alquiler.
+One day in the game = 14 hours.
 
-## Ejecutar desde Windows
-Puedes usar el archivo `run_trade.bat` para lanzar el script fácilmente desde Windows:
+If you choose to rent, the Config sheet will show the minimum profit needed per trip to cover the daily rental cost. The Opportunities sheet will have a "Covers Rental?" column indicating which trades generate enough profit to cover the rental.
+
+## Run from Windows
+You can use the `run_trade.bat` file to easily launch the script from Windows:
 ```bat
 cd /d "e:\PYTHON\RiseTVP\Script Trade"
 run_trade.bat
 ```
-Opcionalmente puedes pasar un ship y carpeta de imágenes:
+Optionally you can pass a ship and images folder:
 ```bat
 run_trade.bat --ship "A-4 Wanderer" --images images --output final_trade.xlsx
 ```
 
-## Hoja Config
-- **Propósito**: Permite seleccionar el ship usado para cálculos de trade routes.
-- **Contenido**:
-  - Selected Ship: El ship elegido (inicialmente el seleccionado al ejecutar).
-  - Capacity: Capacidad en MT del ship seleccionado.
-  - Available Ships: Lista de todos los ships con categoría y capacidad.
-  - Dropdown: En la celda B3 hay un menú desplegable con todos los ships disponibles. Cambia la selección y ejecuta el script de nuevo para recalcular con el nuevo ship.
+## Config Sheet
+- **Purpose**: Allows selecting the ship used for trade routes calculations.
+- **Content**:
+  - Selected Ship: The chosen ship (initially the one selected when running).
+  - Capacity: Capacity in MT of the selected ship.
+  - Available Ships: List of all ships with category and capacity.
+  - Dropdown: In cell B3 there is a dropdown menu with all available ships. Change the selection and run the script again to recalculate with the new ship.
 
-## Ships Disponibles
-El script incluye selección de ships con capacidades calculadas:
+## Available Ships
+The script includes ship selection with calculated capacities:
 
 **AIR AND SPACE:**
 - E-10 Saint: 109 MT (7 + 6x17)
@@ -135,27 +135,27 @@ El script incluye selección de ships con capacidades calculadas:
 - A-4 Wanderer: 18 MT (1 + 1x17)
 - T-19 Stratomaster: 18 MT (1 + 1x17)
 
-La capacidad se usa para calcular profit por viaje y viajes necesarios en Trade Routes.
-- **Hoja Cities**: Contiene todas las ciudades con columnas: Location, Category, Commodity Type, Quantity MT, Reserve MT, Selling CR/MT, Buying CR/MT, Maximum MT. Solo incluye filas con Quantity MT > 0 y Selling CR/MT > 0. Formato: encabezados en negrita, filas alternas coloreadas.
-- **Hoja EasyDock**: Contiene EasyDock con columnas: Location, Category, Name, MT, Buying MT, Buying CR, Selling MT, Selling CR. Solo incluye filas con Selling CR > 0. Formato similar.
-- **Hoja Opportunities**: Lista oportunidades de comercio por categoría, con columnas: Category, Source, Source selling CR/MT, Destination, Destination buying CR/MT, Profit per MT, Max Qty, Total Profit. Ordenado por total profit descendente. Profits altos (>10,000) resaltados en amarillo.
-- **Hoja Trade Routes**: Propone rutas optimizadas agrupadas por source-destination, con commodities a transportar, total qty, total profit, profit por viaje (basado en capacidad del ship) y viajes necesarios.
+The capacity is used to calculate profit per trip and trips needed in Trade Routes.
+- **Cities Sheet**: Contains all cities with columns: Location, Category, Commodity Type, Quantity MT, Reserve MT, Selling CR/MT, Buying CR/MT, Maximum MT. Only includes rows with Quantity MT > 0 and Selling CR/MT > 0. Format: bold headers, alternating colored rows.
+- **EasyDock Sheet**: Contains EasyDock with columns: Location, Category, Name, MT, Buying MT, Buying CR, Selling MT, Selling CR. Only includes rows with Selling CR > 0. Similar format.
+- **Opportunities Sheet**: Lists trade opportunities by category, with columns: Category, Source, Source selling CR/MT, Destination, Destination buying CR/MT, Profit per MT, Max Qty, Total Profit. Ordered by total profit descending. High profits (>10,000) highlighted in yellow.
+- **Trade Routes Sheet**: Proposes optimized routes grouped by source-destination, with commodities to transport, total qty, total profit, profit per trip (based on ship capacity) and trips needed.
 
-## Hoja de Oportunidades
-- Además, el script crea una hoja `Opportunities` en `output.xlsx`.
-- En ella se listan las rutas con `selling` más barato en un punto A y `buying` más caro en un punto B.
-- Columnas: Category, Source, Source selling CR/MT, Destination, Destination buying CR/MT, Profit CR/MT.
+## Opportunities Sheet
+- Additionally, the script creates an `Opportunities` sheet in `output.xlsx`.
+- It lists routes with the cheapest `selling` at point A and most expensive `buying` at point B.
+- Columns: Category, Source, Source selling CR/MT, Destination, Destination buying CR/MT, Profit CR/MT.
 
-## Cómo interpreta el script
-- **Formato ciudad**: detecta columnas como `Category`, `Commodity Type`, `Quantity MT`, `Reserve MT`, `Selling CR/MT`, `Buying CR/MT`, `Maximum MT`.
-- **Formato EasyDock**: detecta columnas como `Category`, `Name`, `MT`, `Buying MT`, `Buying CR`, `Selling MT`, `Selling CR`.
-- Las categorías de commodities se asignan en orden fijo: 1. Rare/Precious, 2. Foodstuffs, 3. Natural Materials, 4. Fuel Ore, 5. Consumer Goods, 6. Fabricated Material, 7. Refined Fuel.
-- Si no reconoce un formato de tabla, cae en un parseo de `Clave: Valor`.
+## How the script interprets
+- **City format**: detects columns like `Category`, `Commodity Type`, `Quantity MT`, `Reserve MT`, `Selling CR/MT`, `Buying CR/MT`, `Maximum MT`.
+- **EasyDock format**: detects columns like `Category`, `Name`, `MT`, `Buying MT`, `Buying CR`, `Selling MT`, `Selling CR`.
+- Commodity categories are assigned in fixed order: 1. Rare/Precious, 2. Foodstuffs, 3. Natural Materials, 4. Fuel Ore, 5. Consumer Goods, 6. Fabricated Material, 7. Refined Fuel.
+- If it doesn't recognize a table format, it falls back to `Key: Value` parsing.
 
-## Ajustes y mejoras
-- Si necesitas otro formato de imagen, modifica `parse_text_to_data` en `ocr_to_excel.py`.
-- Para calcular oportunidades de trayectos/comercios, añade análisis posterior usando los datos en `output.xlsx` o extiende el script para generar resultados.
+## Adjustments and improvements
+- If you need another image format, modify `parse_text_to_data` in `ocr_to_excel.py`.
+- To calculate route/trade opportunities, add post-analysis using the data in `output.xlsx` or extend the script to generate results.
 
-## Notas
-- Las imágenes deben tener texto claro y legible para un buen OCR.
-- Si hay errores, revisa la instalación de Tesseract y la calidad de las fotos.
+## Notes
+- Images must have clear and legible text for good OCR.
+- If there are errors, check the Tesseract installation and photo quality.
