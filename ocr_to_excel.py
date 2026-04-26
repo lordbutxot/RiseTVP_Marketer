@@ -790,8 +790,8 @@ def save_to_excel(
         green_fill = PatternFill(start_color="00B050", end_color="00B050", fill_type="solid")
         red_fill   = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
 
-        GRADE_COL  = 1
-        ROI_COL    = len(columns) - (2 if is_rental and rental_cost_per_day else 1)  # columna ROI viaje (%)
+        GRADE_COL = 1
+        ROI_COL  = len(columns) - (2 if is_rental and rental_cost_per_day else 1)  # columna ROI viaje (%)
 
         for op in opportunities:
             grade        = op['grade']
@@ -812,6 +812,8 @@ def save_to_excel(
                 op['destination_capacity'],
                 qty_trip,
                 cost_trip,
+                profit_trip,
+                round(roi_pct, 2),
             ]
             if is_rental and rental_cost_per_day:
                 row.insert(-1, round(op['_rental_cost'], 2))  # insert before roi
@@ -908,6 +910,8 @@ def save_to_excel(
                         op['destination_capacity'],
                         qty_trip,
                         cost_trip,
+                        profit_trip,
+                        round(roi_pct, 2),
                     ]
                     if is_rental and rental_cost_per_day:
                         row.insert(-1, round(op['_rental_cost'], 2))  # insert before roi
