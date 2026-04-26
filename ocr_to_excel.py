@@ -3,6 +3,7 @@ import math
 import os
 import re
 import time
+from turtle import mode
 import pytesseract
 from PIL import Image
 import openpyxl
@@ -755,8 +756,7 @@ def save_to_excel(
     all_opportunities = find_trade_opportunities(catalog)
 
     if all_opportunities:
-        all_opportunities = assign_grades(all_opportunities, ship_capacity=ship_capacity, budget=budget, is_rental=is_rental, rental_cost_per_day=ship_rental_cost)
-
+        all_opportunities = assign_grades(all_opportunities, ship_capacity=ship_capacity, budget=budget, is_rental=is_rental, rental_cost_per_day=rental_cost_per_day)
         all_opportunities.sort(key=lambda x: x["_profit_trip"], reverse=True)
 
         # Always create Opportunities sheet with all
@@ -1188,7 +1188,7 @@ def main(image_folder, selected_ship=None, output_file='final_trade.xlsx',
     # ── 5. Origin selection ────────────────────────────────────────────────
     if mode == 'city':
         if origin is None:
-            origin = input("  Enter origin city name: ").strip()
+            origin = _prompt_city("Select ORIGIN city for City-Specific Opportunities:")
     else:
         if origin is None:
             origin = _prompt_city("ORIGIN City:")
@@ -1272,13 +1272,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Extrae datos de imágenes y genera análisis de rutas comerciales'
     )
-    parser.add_argument('--images',     default='images',          help='Carpeta de imágenes')
-    parser.add_argument('--ship',       default=None,              help='Ship a usar')
+    parser.add_argument('--images',     default='images',           help='Carpeta de imágenes')
+    parser.add_argument('--ship',       default=None,               help='Ship a usar')
     parser.add_argument('--output',     default='final_trade.xlsx', help='Archivo Excel de salida')
-    parser.add_argument('--budget',     default=None, type=int,    help='Initial budget in CR')
-    parser.add_argument('--containers', default=None, type=int,    dest='containers',
+    parser.add_argument('--budget',     default=None, type=int,     help='Initial budget in CR')
+    parser.add_argument('--containers', default=None, type=int,     dest='containers',
                         help='Number of cargo containers carried on this flight')
-    parser.add_argument('--mode', default='regular', help='Mode: regular or city')
+    parser.add_argument('--mode',       default='regular',          help='Mode: regular or city')
+    parser.add_argument('--origin',     default=None,               help='Origin city (optional, will prompt if not provided)')  # ← ADD THIS
     args = parser.parse_args()
 
     main(
