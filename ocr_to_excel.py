@@ -200,7 +200,12 @@ def calculate_ship_capacity(ship_name: str, containers_used: int = None) -> int:
 def extract_text_from_image(image_path: str) -> str:
     try:
         img = Image.open(image_path)
-        text = pytesseract.image_to_string(img)
+        
+        # Esta es la configuración que ayuda a Tesseract a no saltarse dígitos 
+        # y a entender que el texto está organizado en bloques/tablas.
+        custom_config = r'--oem 3 --psm 6' 
+        
+        text = pytesseract.image_to_string(img, config=custom_config)
         return text.strip()
     except Exception as e:
         print(f"Error processing {image_path}: {e}")
@@ -212,17 +217,36 @@ def extract_text_from_image(image_path: str) -> str:
 
 def normalize_number(token):
     if token is None:
-        return None
+        return 0
     if isinstance(token, (int, float)):
         return int(token)
-    text = str(token).replace(',', '').strip()
-    clean = re.sub(r'[^0-9.]', '', text)
-    if clean == '':
-        return None
+    
+    text = str(token).strip()
+    
+    # Paso 1: Si el OCR detectó algo como "8.777,00" o "8,777", 
+    # primero normalizamos eliminando lo que NO sea dígito, punto o coma.
+    text = re.sub(r'[^\d.,]', '', text)
+    
+    # Paso 2: Manejo inteligente de decimales vs miles.
+    # Si hay un punto/coma seguido de solo 1 o 2 dígitos al final, 
+    # probablemente es un decimal (que en este juego parece que no usas para MT).
+    # Si hay 3 dígitos, es un separador de miles.
+    if len(text) > 3:
+        # Si el penúltimo o antepenúltimo carácter es separador, es decimal.
+        if text[-3] in '.,': # Caso .XX
+            text = text [:-3]
+        elif text[-2] in '.,': # Caso .X
+            text = text[:-2]
+
+    # Paso 3: Ahora sí, eliminamos cualquier rastro de puntuación 
+    # para unir los miles (ej: "8.777" -> "8777")
+    clean = re.sub(r'[.,]', '', text)
+    
     try:
-        return int(float(clean))
+        return int(clean) if clean else 0
     except ValueError:
-        return None
+        return 0
+
 
 
 def is_total_line(line: str) -> bool:
@@ -251,26 +275,32 @@ def parse_table_rows(lines, min_numbers=5, layout='city'):
             continue
         if line.lower().startswith(('commodity type', 'name', 'type', 'population', 'fees')):
             continue
-        numbers = re.findall(r'[\d,]+', line)
+            
+        # CAMBIO CLAVE: Buscamos grupos de números más largos o pegados
+        # Esta regex es más permisiva para capturar el número entero aunque tenga ruido
+        numbers = re.findall(r'[\d.,]+', line)
+        
         if len(numbers) < min_numbers:
             continue
-        first_number = re.search(r'[\d,]+', line)
-        if not first_number:
+            
+        first_number_match = re.search(r'[\d.,]+', line)
+        if not first_number_match:
             continue
-        name = line[:first_number.start()].strip()
+            
+        name = line[:first_number_match.start()].strip()
         if not name:
             continue
+            
         parsed_numbers = [normalize_number(n) for n in numbers[:min_numbers]]
         row = [name] + parsed_numbers
+        
+        # Validación de fila real
         if layout == 'city':
-            qty = parsed_numbers[0] if len(parsed_numbers) > 0 else None
             sell = parsed_numbers[2] if len(parsed_numbers) > 2 else None
-            if qty and qty > 0 and sell and sell > 0:
+            if sell and sell > 0:
                 rows.append(row)
         elif layout == 'easydock':
-            sell_cr = parsed_numbers[4] if len(parsed_numbers) > 4 else None
-            if sell_cr and sell_cr > 0:
-                rows.append(row)
+            rows.append(row)
     return rows
 
 
