@@ -1,5 +1,4 @@
 import argparse
-
 import math
 import os
 import platform
@@ -867,7 +866,7 @@ def save_to_excel(
 
         columns = _build_columns(is_rental, rental_cost_per_day)
         GRADE_COL = 1
-        ROI_COL = len(columns) - (1 if not (is_rental and rental_cost_per_day) else 2)
+        ROI_COL = columns.index('Trip ROI (%)') + 1  # openpyxl columns are 1-indexed
 
         ws_op = wb.create_sheet(title='Opportunities')
         _write_opportunities_sheet(
