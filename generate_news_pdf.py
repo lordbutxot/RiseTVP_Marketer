@@ -103,7 +103,7 @@ def _newspaper_styles():
             leading=30,
             alignment=1,
             textColor=colors.HexColor("#101010"),
-            spaceAfter=4,
+            spaceAfter=2,
         ),
         "edition": ParagraphStyle(
             "Edition",
@@ -113,7 +113,7 @@ def _newspaper_styles():
             leading=10,
             alignment=1,
             textColor=colors.HexColor("#505050"),
-            spaceAfter=3,
+            spaceAfter=2,
         ),
         "banner": ParagraphStyle(
             "Banner",
@@ -131,7 +131,7 @@ def _newspaper_styles():
             fontSize=20,
             leading=23,
             textColor=colors.HexColor("#111111"),
-            spaceAfter=6,
+            spaceAfter=4,
         ),
         "subheadline": ParagraphStyle(
             "Subheadline",
@@ -140,7 +140,7 @@ def _newspaper_styles():
             fontSize=10,
             leading=13,
             textColor=colors.HexColor("#303030"),
-            spaceAfter=10,
+            spaceAfter=6,
         ),
         "section": ParagraphStyle(
             "Section",
@@ -149,8 +149,8 @@ def _newspaper_styles():
             fontSize=10.5,
             leading=12,
             textColor=colors.HexColor("#8A1538"),
-            spaceBefore=4,
-            spaceAfter=4,
+            spaceBefore=2,
+            spaceAfter=2,
         ),
         "body": ParagraphStyle(
             "Body",
@@ -159,7 +159,7 @@ def _newspaper_styles():
             fontSize=8.8,
             leading=11,
             textColor=colors.HexColor("#1C1C1C"),
-            spaceAfter=4,
+            spaceAfter=2,
         ),
         "brief": ParagraphStyle(
             "Brief",
@@ -168,7 +168,7 @@ def _newspaper_styles():
             fontSize=8.5,
             leading=11,
             textColor=colors.HexColor("#1C1C1C"),
-            spaceAfter=3,
+            spaceAfter=2,
         ),
         "table_title": ParagraphStyle(
             "TableTitle",
@@ -177,7 +177,17 @@ def _newspaper_styles():
             fontSize=8.2,
             leading=10,
             textColor=colors.HexColor("#101010"),
-            spaceAfter=3,
+            spaceAfter=2,
+        ),
+        "quote": ParagraphStyle(
+            "Quote",
+            parent=styles["BodyText"],
+            fontName="Times-Italic",
+            fontSize=8.3,
+            leading=10,
+            alignment=1,
+            textColor=colors.HexColor("#404040"),
+            spaceAfter=1,
         ),
         "footer": ParagraphStyle(
             "Footer",
@@ -228,6 +238,84 @@ def _market_summary_story(styles, macro_data, opportunities, config_data):
     ]
 
 
+def _build_opinion_opening(macro_data, opportunities):
+    city_summary = macro_data.get("city_summary", [])
+    top_city = city_summary[0] if city_summary else None
+    runner_up = city_summary[1] if len(city_summary) > 1 else None
+    best_route = next(iter(sorted(opportunities or [], key=lambda item: item.get("profit_per_mt", 0), reverse=True)), None)
+
+    lines = []
+    if top_city and runner_up:
+        gap = max((top_city.get("total_profit", 0) - runner_up.get("total_profit", 0)), 0)
+        lines.append(
+            f"The province opens today with clear leadership from {top_city['city']}, which sits {_fmt_cr(gap)} ahead of the next city in mapped total margin. "
+            f"That kind of separation usually means traders are not looking at one lucky lane, but at a full local market with enough depth to keep capital circulating."
+        )
+    elif top_city:
+        lines.append(
+            f"{top_city['city']} sets the tone for the day, leading the economic board with {_fmt_cr(top_city.get('total_profit', 0))} in mapped margin."
+        )
+
+    if best_route:
+        lines.append(
+            f"The sharpest pricing signal is still route-based rather than city-wide: {best_route['commodity']} moving from {best_route['source']} to {best_route['destination']} yields {_fmt_cr(best_route.get('profit_per_mt', 0))} per MT. "
+            f"When unit margins stay this elevated, disciplined haulers usually outperform broad speculative buying."
+        )
+
+    return " ".join(lines) or "Capital remains selective across The Vineo Province, rewarding traders who follow unit spread rather than noise."
+
+
+def _build_opinion_mid(macro_data):
+    commodity_rows = _make_commodity_analysis_rows(macro_data, limit=3)
+    city_summary = macro_data.get("city_summary", [])
+    active_cities = [item for item in city_summary if item.get("num_lucrative", 0) >= 3]
+
+    lines = []
+    if commodity_rows:
+        lead = commodity_rows[0]
+        lines.append(
+            f"Commodity leadership is being defined by {lead[0]}, where the current spread has widened to {lead[1]} between accumulation and sell-side demand. "
+            f"That is the kind of pricing gap that pulls attention away from mediocre diversified routes and back toward focused cargo selection."
+        )
+    if active_cities:
+        lines.append(
+            f"At the city level, {len(active_cities)} markets are carrying at least three lucrative goods, which suggests the province is not running on one isolated imbalance. "
+            f"Instead, the broader signal is one of distributed opportunity: enough breadth for planners, enough volatility for opportunists."
+        )
+
+    return " ".join(lines) or "The daily board suggests a market with enough breadth to reward planning and enough dispersion to punish lazy routing."
+
+
+def _build_opinion_closing(macro_data, opportunities):
+    best_route = next(iter(sorted(opportunities or [], key=lambda item: item.get("profit_per_mt", 0), reverse=True)), None)
+    top_city = next(iter(macro_data.get("top_cities_by_profit", [])), None)
+
+    if best_route and top_city:
+        variants = [
+            f"Closing desk: when {top_city['city']} leads the board and {best_route['commodity']} still clears {_fmt_cr(best_route.get('profit_per_mt', 0))} per MT, the market is reminding everyone that price discipline beats cargo volume.",
+            f"Closing desk: today's board argues for focus over noise. {top_city['city']} holds the broadest edge, while {best_route['commodity']} keeps proving that the best unit margin usually tells the truth first.",
+            f"Closing desk: capital rarely needs a loud signal. A leading city like {top_city['city']} and a clean {best_route['commodity']} spread are usually enough to define the day."
+        ]
+        selector = (len(top_city["city"]) + len(best_route["commodity"]) + int(best_route.get("profit_per_mt", 0))) % len(variants)
+        return variants[selector]
+    return "Closing desk: the market rarely rewards the loudest route; it rewards the cleanest spread."
+
+
+def _build_quote_of_day(macro_data, opportunities):
+    best_route = next(iter(sorted(opportunities or [], key=lambda item: item.get("profit_per_mt", 0), reverse=True)), None)
+    top_city = next(iter(macro_data.get("top_cities_by_profit", [])), None)
+    if best_route:
+        quotes = [
+            f'"A clean margin per MT is worth more than a crowded hold without pricing power." Today\'s board still proves it in {best_route["commodity"]}.',
+            f'"Markets whisper through spreads before they shout through volume." {best_route["commodity"]} is the whisper to watch today.',
+            f'"The disciplined trader reads the unit price before the cargo hold." {top_city["city"] if top_city else "The province"} is rewarding that habit again.',
+            f'"Distance is only expensive when the spread is weak." Today\'s routes keep making that case.'
+        ]
+        selector = (datetime.datetime.now().timetuple().tm_yday + len(best_route["commodity"])) % len(quotes)
+        return quotes[selector]
+    return '"Trade follows discipline before it follows distance."'
+
+
 def _make_table(title, headers, rows, col_widths, header_fill="#E9E2D0", accent="#8A1538"):
     data = [[Paragraph(f"<b>{h}</b>", getSampleStyleSheet()["BodyText"]) for h in headers]]
     data.extend(rows)
@@ -252,7 +340,7 @@ def _make_table(title, headers, rows, col_widths, header_fill="#E9E2D0", accent=
             ]
         )
     )
-    return KeepTogether([Paragraph(title, _newspaper_styles()["table_title"]), Spacer(1, 2), table])
+    return KeepTogether([Paragraph(title, _newspaper_styles()["table_title"]), Spacer(1, 1), table])
 
 
 def _ad_slot(styles, image_path, slot_label):
@@ -260,7 +348,7 @@ def _ad_slot(styles, image_path, slot_label):
         block = [
             Paragraph(slot_label, styles["table_title"]),
             Image(image_path, width=186 * mm, height=28 * mm),
-            Spacer(1, 5),
+            Spacer(1, 3),
         ]
         return KeepTogether(block)
 
@@ -279,7 +367,7 @@ def _ad_slot(styles, image_path, slot_label):
             ]
         )
     )
-    return KeepTogether([Paragraph(slot_label, styles["table_title"]), placeholder, Spacer(1, 5)])
+    return KeepTogether([Paragraph(slot_label, styles["table_title"]), placeholder, Spacer(1, 3)])
 
 
 def _section_block(styles, title, elements, min_space_mm=24):
@@ -443,7 +531,7 @@ def generate_news_pdf(
 
     if header_image:
         story.append(Image(header_image, width=186 * mm, height=34 * mm))
-        story.append(Spacer(1, 3))
+        story.append(Spacer(1, 2))
 
     story.append(Paragraph(NEWSPAPER_NAME, styles["masthead"]))
     story.append(Paragraph(f"Economic Edition | Rise: The Vineo Province | {today}", styles["edition"]))
@@ -462,11 +550,14 @@ def generate_news_pdf(
         )
     )
     story.append(banner)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 3))
     story.append(_hr([186 * mm], color="#8A1538"))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 2))
 
     story.extend(_market_summary_story(styles, macro_data, opportunities or [], config_data or {}))
+    story.append(Paragraph("Daily Opinion", styles["section"]))
+    story.append(Paragraph(_build_opinion_opening(macro_data, opportunities or []), styles["body"]))
+    story.append(Paragraph(_build_opinion_mid(macro_data), styles["body"]))
 
     top_city = next(iter(macro_data.get("top_cities_by_profit", [])), None)
     city_line = (
@@ -489,7 +580,7 @@ def generate_news_pdf(
                     col_widths=[45 * mm, 78 * mm, 32 * mm, 24 * mm],
                 )
             )
-            route_tables.append(Spacer(1, 5))
+            route_tables.append(Spacer(1, 3))
     if route_tables:
         story.extend(_section_block(styles, "Route Desk", route_tables))
         story.append(_ad_slot(styles, rotating_ads[0] if len(rotating_ads) > 0 else None, "Sponsored Placement I"))
@@ -505,7 +596,7 @@ def generate_news_pdf(
             rows=city_rows,
             col_widths=[46 * mm, 46 * mm, 42 * mm, 52 * mm],
         ))
-        ledger_elements.append(Spacer(1, 5))
+        ledger_elements.append(Spacer(1, 3))
 
     city_analysis_rows = _make_city_analysis_rows(macro_data.get("city_summary", []))
     if city_analysis_rows:
@@ -523,7 +614,7 @@ def generate_news_pdf(
             rows=city_analysis_rows,
             col_widths=[40 * mm, 40 * mm, 34 * mm, 28 * mm, 44 * mm],
         ))
-        ledger_elements.append(Spacer(1, 5))
+        ledger_elements.append(Spacer(1, 3))
 
     if commodity_rows:
         ledger_elements.append(_make_table(
@@ -532,16 +623,14 @@ def generate_news_pdf(
             rows=commodity_rows,
             col_widths=[52 * mm, 48 * mm, 48 * mm, 38 * mm],
         ))
-        ledger_elements.append(Spacer(1, 5))
+        ledger_elements.append(Spacer(1, 3))
 
     if ledger_elements:
-        story.append(PageBreak())
         ledger_elements.append(_ad_slot(styles, rotating_ads[1] if len(rotating_ads) > 1 else None, "Sponsored Placement II"))
         story.extend(_section_block(styles, "Provincial Ledger", ledger_elements))
 
     commodity_analysis_rows = _make_commodity_analysis_rows(macro_data)
     if commodity_analysis_rows:
-        story.append(PageBreak())
         commodity_analysis_elements = [
             Paragraph(
                 "A commodity-by-commodity view of unit spread, strongest accumulation point and strongest sell-side outlet across the province.",
@@ -553,7 +642,7 @@ def generate_news_pdf(
                 rows=commodity_analysis_rows,
                 col_widths=[46 * mm, 30 * mm, 40 * mm, 44 * mm, 26 * mm],
             ),
-            Spacer(1, 5),
+            Spacer(1, 3),
             _ad_slot(styles, rotating_ads[2] if len(rotating_ads) > 2 else None, "Sponsored Placement III"),
         ]
         story.extend(_section_block(styles, "Commodity Analysis", commodity_analysis_elements))
@@ -584,17 +673,17 @@ def generate_news_pdf(
                 rows=limited,
                 col_widths=[48 * mm, 76 * mm, 34 * mm, 28 * mm],
                 ),
-                Spacer(1, 5),
+                Spacer(1, 3),
             ]
             story.extend(_section_block(styles, "Exchange Floor", exchange_elements))
 
-    closing = (
-        "Editorial desk: The Vieneo Index ranks routes by current price spread per MT and published trade capacity. "
-        "Use this edition as a field brief before departure, then refresh after every new OCR capture or workbook export."
-    )
+    closing = _build_opinion_closing(macro_data, opportunities or [])
+    story.extend(_section_block(styles, "Closing Opinion", [Paragraph(closing, styles["body"])]))
+    story.append(Paragraph("Quote of the Day", styles["table_title"]))
+    story.append(Paragraph(_build_quote_of_day(macro_data, opportunities or []), styles["quote"]))
     story.append(_hr([186 * mm], color="#8A1538"))
-    story.append(Spacer(1, 4))
-    story.append(Paragraph(closing, styles["footer"]))
+    story.append(Spacer(1, 2))
+    story.append(Paragraph("Editorial desk: refreshed from live provincial trade sheets.", styles["footer"]))
 
     doc.build(story, onFirstPage=_draw_page_chrome, onLaterPages=_draw_page_chrome)
     print(f"The Vieneo Index generated: {output_file}")
