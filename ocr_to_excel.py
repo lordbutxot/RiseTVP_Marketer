@@ -9,6 +9,45 @@ import pytesseract
 from PIL import Image
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+import hashlib
+
+CITY_COLOR_MAP = {}
+COMMODITY_COLOR_MAP = {}
+
+def _generate_color(key):
+    """Deterministic color from string"""
+    h = hashlib.md5(key.encode()).hexdigest()
+    return h[:6].upper()  # hex color
+
+def get_or_create_fill(name, registry):
+    if name not in registry:
+        color = _generate_color(name)
+        registry[name] = PatternFill(
+            start_color=color,
+            end_color=color,
+            fill_type="solid"
+        )
+    return registry[name]
+
+import json
+
+def save_color_maps():
+    with open("color_maps.json", "w") as f:
+        json.dump({
+            "cities": {k: v.start_color.rgb for k, v in CITY_COLOR_MAP.items()},
+            "commodities": {k: v.start_color.rgb for k, v in COMMODITY_COLOR_MAP.items()}
+        }, f)
+
+def load_color_maps():
+    try:
+        with open("color_maps.json") as f:
+            data = json.load(f)
+            for k, v in data["cities"].items():
+                CITY_COLOR_MAP[k] = PatternFill(start_color=v, end_color=v, fill_type="solid")
+            for k, v in data["commodities"].items():
+                COMMODITY_COLOR_MAP[k] = PatternFill(start_color=v, end_color=v, fill_type="solid")
+    except FileNotFoundError:
+        pass
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TESSERACT — auto-configure based on OS
@@ -64,6 +103,7 @@ CITIES = {
     "Pimli":        {"x": 270, "y": 280},
     "SovietUnion":  {"x": 500, "y": 150},
     "Terrazul":     {"x": 480, "y": 320},
+    "Solaris":    {"x": 320, "y": 400},
     "Sharney 1":    {"x": 320, "y": 400},
     "Sharney 2":    {"x": 360, "y": 450},
     "Sharney 3":    {"x": 400, "y": 500},
@@ -71,6 +111,10 @@ CITIES = {
 }
 
 CITY_LIST = sorted(CITIES.keys())
+
+
+TAKEOFF_TIME = 5
+LANDING_TIME = 10
 
 FLIGHT_TIMES_EXPLICIT = {
     ("Delois Spot", "Alphaville"): 60,
@@ -104,22 +148,6 @@ FLIGHT_TIMES_EXPLICIT = {
     ("Kansas", "Terrazul"): 60,
 }
 
-TAKEOFF_TIME = 5
-LANDING_TIME = 10
-
-_REF_PAIRS = [
-    (("Kansas", dst), t)
-    for (src, dst), t in FLIGHT_TIMES_EXPLICIT.items()
-    if src == "Kansas" and dst in CITIES and "Kansas" in CITIES
-]
-_SPEEDS = []
-for (src, dst), t in _REF_PAIRS:
-    dx = CITIES[src]["x"] - CITIES[dst]["x"]
-    dy = CITIES[src]["y"] - CITIES[dst]["y"]
-    dist = math.sqrt(dx * dx + dy * dy)
-    if t > 0:
-        _SPEEDS.append(dist / t)
-SPEED_UNITS_PER_MIN = sum(_SPEEDS) / len(_SPEEDS) if _SPEEDS else 3.0
 
 CITY_COLORS = {
     'Alphaville': 'FFC000',
@@ -161,6 +189,55 @@ GRADE_STYLES = {
 # FLIGHT / DISTANCE HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# --- COORDINATE SYSTEM CONFIGURATION ---
+PLANET_RADIUS = 2898.805  # km (0.455 * Earth Radius)
+FLIGHT_SPEED = 10.0       # km per minute (Adjust based on your ship speed)
+MIN_TRAVEL_TIME = 5.0     # minutes (Base time for takeoff/landing)
+
+CITY_COORDINATES = {
+    "Alphaville":  {"lat": -4.426,  "lon": -22.115},
+    "Deadwood":    {"lat": -11.077, "lon": -26.543},
+    "Freedom":     {"lat": -12.812, "lon": 15.938},
+    "Gettysburg":  {"lat": -2.616,  "lon": -35.244},
+    "Kansas":      {"lat": -0.988,  "lon": 22.243},
+    "SovietUnion": {"lat": -8.060,  "lon": -23.212},
+    "Deois":       {"lat": -4.222,  "lon": -26.066},
+    # Cities currently missing coordinates:
+    "Comstock":    None, 
+    "Ederar":      None,
+    "Erie":        None,
+    "Lancaster":   None,
+    "Pimli":       None,
+    "Terrazul":    None,
+}
+
+_REF_PAIRS = [
+    (("Kansas", dst), minutes)
+    for (src, dst), minutes in FLIGHT_TIMES_EXPLICIT.items()
+    if src == "Kansas" and dst in CITIES and "Kansas" in CITIES
+]
+_SPEEDS = []
+for (src, dst), minutes in _REF_PAIRS:
+    dx = CITIES[src]["x"] - CITIES[dst]["x"]
+    dy = CITIES[src]["y"] - CITIES[dst]["y"]
+    dist = math.sqrt(dx * dx + dy * dy)
+    if minutes > 0:
+        _SPEEDS.append(dist / minutes)
+SPEED_UNITS_PER_MIN = sum(_SPEEDS) / len(_SPEEDS) if _SPEEDS else 3.0
+
+def calculate_haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculates the distance in km between two sets of coordinates."""
+    # Convert degrees to radians
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+
+    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return PLANET_RADIUS * c
+
+
 def _coord_distance(city_a: str, city_b: str) -> float:
     a = CITIES.get(city_a)
     b = CITIES.get(city_b)
@@ -171,18 +248,31 @@ def _coord_distance(city_a: str, city_b: str) -> float:
     return math.sqrt(dx * dx + dy * dy)
 
 
-def get_flight_time(origin: str, destination: str) -> int:
-    """Total flight time including takeoff and landing (minutes)."""
+def get_flight_time(origin, destination):
+    """Hybrid travel time using explicit routes first, then coordinates, then map distance."""
     if origin == destination:
         return 0
-    flight_mins = (
+
+    explicit = (
         FLIGHT_TIMES_EXPLICIT.get((origin, destination))
         or FLIGHT_TIMES_EXPLICIT.get((destination, origin))
     )
-    if flight_mins is None:
-        dist = _coord_distance(origin, destination)
-        flight_mins = round(dist / SPEED_UNITS_PER_MIN) if dist > 0 else 60
-    return TAKEOFF_TIME + flight_mins + LANDING_TIME
+    if explicit is not None:
+        return TAKEOFF_TIME + explicit + LANDING_TIME
+
+    c1 = CITY_COORDINATES.get(origin)
+    c2 = CITY_COORDINATES.get(destination)
+    if c1 and c2:
+        distance_km = calculate_haversine_distance(c1["lat"], c1["lon"], c2["lat"], c2["lon"])
+        travel_time = (distance_km / FLIGHT_SPEED) + MIN_TRAVEL_TIME
+        return round(travel_time, 1)
+
+    dist = _coord_distance(origin, destination)
+    if dist > 0:
+        return round(TAKEOFF_TIME + (dist / SPEED_UNITS_PER_MIN) + LANDING_TIME, 1)
+
+    return 120
+
 
 
 def calculate_ship_capacity(ship_name: str, containers_used: int = None) -> int:
@@ -366,10 +456,11 @@ def _contrast_text_color(hex_color: str) -> str:
     return '000000' if brightness > 160 else 'FFFFFF'
 
 
-def get_city_fill(city: str):
-    color = CITY_COLORS.get(city, 'D9D9D9')
-    return PatternFill(start_color=color, end_color=color, fill_type='solid')
+def get_city_fill(city_name):
+    return get_or_create_fill(city_name, CITY_COLOR_MAP)
 
+def get_commodity_fill(commodity_name):
+    return get_or_create_fill(commodity_name, COMMODITY_COLOR_MAP)
 
 def _style_header_row(cells):
     for cell in cells:
@@ -573,11 +664,6 @@ def assign_grades(
         profit_trip = qty * op["profit_per_mt"]
 
         rental_cost_per_trip = 0
-        if is_rental and rental_cost_per_day:
-            flight_time = get_flight_time(op['source'], op['destination'])
-            total_trip_time = flight_time + 15
-            rental_cost_per_trip = (total_trip_time / 60) * (rental_cost_per_day / 14)
-            cost_trip += rental_cost_per_trip
 
         roi_trip = (profit_trip / cost_trip * 100) if cost_trip > 0 else 0
 
@@ -615,63 +701,66 @@ def assign_grades(
 # TRADE ROUTE ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def find_best_leg(
-    catalog: dict,
-    src: str,
-    dst: str,
-    allowed_commodities: list,
-    ship_capacity: int,
-    budget: float,
-) -> dict | None:
-    """
-    Given a source→destination pair, find the best single-commodity trade leg.
-    Returns a dict with leg details or None if no profitable trade exists.
-    """
+def find_best_leg(catalog, src, dst, allowed_commodities, ship_capacity, budget):
     best = None
-    src_data = catalog.get(src, {})
-    dst_data = catalog.get(dst, {})
-
+    # Calculate travel time for this specific leg using your new coordinate system
+    travel_time = get_flight_time(src, dst)
+    
     for commodity in allowed_commodities:
-        if commodity not in src_data or commodity not in dst_data:
-            continue
-        s = src_data[commodity]
-        d = dst_data[commodity]
-        if s['selling'] is None or d['buying'] is None:
-            continue
-        profit_per_mt = d['buying'] - s['selling']
-        if profit_per_mt <= 0:
-            continue
-
-        available = s.get('sell_capacity', 0) or 0
-        capacity  = d.get('buy_capacity', 0) or 0
-        if available <= 0 or capacity <= 0:
-            continue
-
-        max_by_budget = int(budget / s['selling']) if budget and s['selling'] > 0 else float("inf")
-        qty = min(ship_capacity, available, capacity, max_by_budget)
-        qty = max(qty, 0)
-        if qty <= 0:
-            continue
-
-        cost   = qty * s['selling']
-        profit = qty * profit_per_mt
-        flight = get_flight_time(src, dst)
-        roi    = (profit / cost * 100) if cost > 0 else 0
-
-        if best is None or profit > best['profit']:
-            best = {
-                'commodity':    commodity,
-                'src':          src,
-                'dst':          dst,
-                'buy_price':    s['selling'],
-                'sell_price':   d['buying'],
-                'profit_per_mt':profit_per_mt,
-                'qty':          qty,
-                'cost':         cost,
-                'profit':       profit,
-                'flight_min':   flight,
-                'roi':          roi,
-            }
+        if src in catalog and commodity in catalog[src] and \
+           dst in catalog and commodity in catalog[dst]:
+            
+            s = catalog[src][commodity]
+            d = catalog[dst][commodity]
+            
+            if s['selling'] is None or d['buying'] is None:
+                continue
+            
+            profit_per_mt = d['buying'] - s['selling']
+            available = s['quantity'] - s['reserve']
+            capacity = d['buy_capacity']
+            
+            if profit_per_mt <= 0 or available <= 0 or capacity <= 0:
+                continue
+                
+            max_by_budget = int(budget / s['selling']) if budget and s['selling'] > 0 else float("inf")
+            qty = min(ship_capacity, available, capacity, max_by_budget)
+            qty = max(qty, 0)
+            
+            if qty <= 0:
+                continue
+                
+            cost = qty * s['selling']
+            profit = qty * profit_per_mt
+            roi = (profit / cost * 100) if cost > 0 else 0
+            
+            if best is None or profit > best['profit']:
+                best = {
+                    'commodity': commodity,
+                    'src': src,
+                    'dst': dst,
+                    'buy_price': s['selling'],
+                    'sell_price': d['buying'],
+                    'profit_per_mt': profit_per_mt,
+                    'qty': qty,
+                    'cost': cost,
+                    'profit': profit,
+                    'roi': roi,
+                    'flight_min': travel_time  # <--- THIS IS THE FIX
+                }
+                
+    # If no profitable commodity was found, still return a "skeleton" leg 
+    # so the script knows the travel time for an empty ship.
+    if best is None:
+        return {
+            'commodity': '— empty —',
+            'src': src,
+            'dst': dst,
+            'buy_price': 0, 'sell_price': 0, 'profit_per_mt': 0,
+            'qty': 0, 'cost': 0, 'profit': 0, 'roi': 0,
+            'flight_min': travel_time  # <--- ALSO ADD HERE
+        }
+        
     return best
 
 
@@ -729,10 +818,8 @@ def compute_trade_routes(
                             'qty':          0,
                             'cost':         0,
                             'profit':       0,
-                            'flight_min':   get_flight_time(src, dst),
                             'roi':          0,
                         })
-                        total_time += get_flight_time(src, dst)
                     else:
                         valid = False
                         break
@@ -950,17 +1037,20 @@ def calculate_macro_data(catalog: dict, opportunities: list) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _build_opp_columns(is_rental, rental_cost_per_day):
+    # Start with the core columns including Travel Time at the end
     cols = [
-        'Grade', 'Commodity', 'Source', 'Buy Price (CR/MT)',
-        'Destination', 'Sell Price (CR/MT)', 'Profit/MT (CR)',
-        'Src Stock (MT)', 'Dst Capacity (MT)', 'MT loaded per trip',
-        'Trip Cost (CR)', 'Trip Profit (CR)',
+        "Grade", "Commodity", "Source", "Buy Price (CR/MT)",
+        "Destination", "Sell Price (CR/MT)", "Profit/MT (CR)",
+        "Src Stock (MT)", "Dst Capacity (MT)", "MT loaded per trip",
+        "Trip Cost (CR)", "Trip Profit (CR)", "Trip ROI (%)",
+        "Travel Time (min)"
     ]
+    
+    # Only add rental columns if specifically needed
     if is_rental and rental_cost_per_day:
         cols.append('Rental Cost (CR)')
-    cols.append('Trip ROI (%)')
-    if is_rental and rental_cost_per_day:
         cols.append('Covers Rental?')
+        
     return cols
 
 
@@ -969,6 +1059,8 @@ def _write_opportunities_sheet(
     is_rental, rental_cost_per_day, origin,
     GRADE_COL, ROI_COL
 ):
+    from openpyxl.styles import Font, PatternFill, Alignment
+
     font_white = Font(color="FFFFFF", bold=True)
     font_black = Font(color="000000", bold=True)
     green_fill = PatternFill(start_color="00B050", end_color="00B050", fill_type="solid")
@@ -984,6 +1076,9 @@ def _write_opportunities_sheet(
         profit_trip = op['_profit_trip']
         roi_pct     = op['_roi']
 
+        # FIXED: correct keys
+        travel_time = get_flight_time(op['source'], op['destination'])
+
         row = [
             grade,
             op['commodity'],
@@ -997,12 +1092,13 @@ def _write_opportunities_sheet(
             qty_trip,
             cost_trip,
             profit_trip,
+            roi_pct,
+            travel_time
         ]
+
         if is_rental and rental_cost_per_day:
-            row.append(round(op['_rental_cost'], 2))
-        row.append(round(roi_pct, 2))
-        if is_rental and rental_cost_per_day:
-            row.append("YES" if op.get('covers_rental', False) else "NO")
+            row.append(rental_cost_per_day)
+            row.append("Yes" if profit_trip > rental_cost_per_day else "No")
 
         ws.append(row)
         cur_row = ws.max_row
@@ -1013,7 +1109,29 @@ def _write_opportunities_sheet(
         gc.font = Font(color=gs["font"], bold=True)
         gc.alignment = Alignment(horizontal="center")
 
-        source_cell = ws.cell(row=cur_row, column=3)
+        # Columns (adjust if your layout changes)
+        COL_COMMODITY = 2
+        COL_SOURCE = 3
+        COL_DEST = 5
+
+        # --- Commodity color ---
+        commodity_cell = ws.cell(row=cur_row, column=COL_COMMODITY)
+        commodity_fill = get_commodity_fill(op['commodity'])
+        commodity_cell.fill = commodity_fill
+        commodity_cell.font = Font(color=_contrast_text_color(commodity_fill.start_color.rgb), bold=True)
+
+        # --- Source city color ---
+        source_cell = ws.cell(row=cur_row, column=COL_SOURCE)
+        source_fill = get_city_fill(op['source'])
+        source_cell.fill = source_fill
+        source_cell.font = Font(color=_contrast_text_color(source_fill.start_color.rgb), bold=True)
+
+        # --- Destination city color ---
+        dest_cell = ws.cell(row=cur_row, column=COL_DEST)
+        dest_fill = get_city_fill(op['destination'])
+        dest_cell.fill = dest_fill
+        dest_cell.font = Font(color=_contrast_text_color(dest_fill.start_color.rgb), bold=True)
+        
         source_fill = get_city_fill(op['source'])
         source_cell.fill = source_fill
         source_cell.font = Font(color=_contrast_text_color(source_fill.start_color.rgb), bold=True)
@@ -1023,13 +1141,26 @@ def _write_opportunities_sheet(
 
         if is_rental and rental_cost_per_day:
             rc = ws.cell(row=cur_row, column=len(columns))
-            if rc.value == "YES":
+            if rc.value == "Yes":
                 rc.fill = green_fill; rc.font = font_white
             else:
                 rc.fill = red_fill;   rc.font = font_white
 
     ws.freeze_panes = "B2"
     _auto_size_columns(ws)
+
+
+# --- OPTIONAL: DEBUG SAFETY (recommended) ---
+
+def validate_opportunity(op):
+    required_keys = [
+        'source', 'destination', 'source_selling', 'destination_buying',
+        'source_available', 'destination_capacity',
+        '_qty_trip', '_cost_trip', '_profit_trip', '_roi'
+    ]
+    for k in required_keys:
+        if k not in op:
+            raise ValueError(f"Missing key: {k} in opportunity: {op}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SAVE TO EXCEL
@@ -1141,6 +1272,7 @@ def save_to_excel(
                 )
 
     # ── TRADE ROUTES ──────────────────────────────────────────────────────────
+    routes = []
     if mode == 'route' and trade_route_params:
         allowed = trade_route_params.get('allowed_commodities', COMMODITY_CATEGORIES)
         max_hops = trade_route_params.get('max_hops', 3)
@@ -1172,6 +1304,21 @@ def save_to_excel(
     # ── MACRO ─────────────────────────────────────────────────────────────────
     opps_for_macro = all_opportunities if all_opportunities else []
     macro_data     = calculate_macro_data(catalog, opps_for_macro)
+    from generate_news_pdf import generate_news_pdf, build_config_data
+
+    config_data = build_config_data(
+        selected_ship=selected_ship,
+        origin=origin
+    )
+
+    generate_news_pdf(
+        macro_data=macro_data,
+        opportunities=all_opportunities,
+        routes=None,
+        config_data=None,
+        output_file="The_Vieneo_Index.pdf",
+        header_image=os.path.join("images", "TVI_Index.jpg")
+    )
     ws_macro       = wb.create_sheet(title='MACRO')
 
     ws_macro.append(['SUMMARY BY CITY'])
@@ -1442,6 +1589,9 @@ def main(image_folder, selected_ship=None, output_file='final_trade.xlsx',
         }
 
     # ── Process images ────────────────────────────────────────────────────────
+    
+    load_color_maps()
+    
     if not os.path.exists(image_folder):
         print(f"\n✗  The folder '{image_folder}' does not exist.")
         return
