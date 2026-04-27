@@ -9,45 +9,7 @@ import pytesseract
 from PIL import Image
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-import hashlib
-
-CITY_COLOR_MAP = {}
-COMMODITY_COLOR_MAP = {}
-
-def _generate_color(key):
-    """Deterministic color from string"""
-    h = hashlib.md5(key.encode()).hexdigest()
-    return h[:6].upper()  # hex color
-
-def get_or_create_fill(name, registry):
-    if name not in registry:
-        color = _generate_color(name)
-        registry[name] = PatternFill(
-            start_color=color,
-            end_color=color,
-            fill_type="solid"
-        )
-    return registry[name]
-
-import json
-
-def save_color_maps():
-    with open("color_maps.json", "w") as f:
-        json.dump({
-            "cities": {k: v.start_color.rgb for k, v in CITY_COLOR_MAP.items()},
-            "commodities": {k: v.start_color.rgb for k, v in COMMODITY_COLOR_MAP.items()}
-        }, f)
-
-def load_color_maps():
-    try:
-        with open("color_maps.json") as f:
-            data = json.load(f)
-            for k, v in data["cities"].items():
-                CITY_COLOR_MAP[k] = PatternFill(start_color=v, end_color=v, fill_type="solid")
-            for k, v in data["commodities"].items():
-                COMMODITY_COLOR_MAP[k] = PatternFill(start_color=v, end_color=v, fill_type="solid")
-    except FileNotFoundError:
-        pass
+from openpyxl.worksheet.pagebreak import Break as PageBreak
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TESSERACT — auto-configure based on OS
@@ -103,7 +65,6 @@ CITIES = {
     "Pimli":        {"x": 270, "y": 280},
     "SovietUnion":  {"x": 500, "y": 150},
     "Terrazul":     {"x": 480, "y": 320},
-    "Solaris":    {"x": 320, "y": 400},
     "Sharney 1":    {"x": 320, "y": 400},
     "Sharney 2":    {"x": 360, "y": 450},
     "Sharney 3":    {"x": 400, "y": 500},
@@ -111,10 +72,6 @@ CITIES = {
 }
 
 CITY_LIST = sorted(CITIES.keys())
-
-
-TAKEOFF_TIME = 5
-LANDING_TIME = 10
 
 FLIGHT_TIMES_EXPLICIT = {
     ("Delois Spot", "Alphaville"): 60,
@@ -148,6 +105,22 @@ FLIGHT_TIMES_EXPLICIT = {
     ("Kansas", "Terrazul"): 60,
 }
 
+TAKEOFF_TIME = 5
+LANDING_TIME = 10
+
+_REF_PAIRS = [
+    (("Kansas", dst), t)
+    for (src, dst), t in FLIGHT_TIMES_EXPLICIT.items()
+    if src == "Kansas" and dst in CITIES and "Kansas" in CITIES
+]
+_SPEEDS = []
+for (src, dst), t in _REF_PAIRS:
+    dx = CITIES[src]["x"] - CITIES[dst]["x"]
+    dy = CITIES[src]["y"] - CITIES[dst]["y"]
+    dist = math.sqrt(dx * dx + dy * dy)
+    if t > 0:
+        _SPEEDS.append(dist / t)
+SPEED_UNITS_PER_MIN = sum(_SPEEDS) / len(_SPEEDS) if _SPEEDS else 3.0
 
 CITY_COLORS = {
     'Alphaville': 'FFC000',
@@ -186,57 +159,21 @@ GRADE_STYLES = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FLIGHT / DISTANCE HELPERS
+# FILE FILTER
 # ─────────────────────────────────────────────────────────────────────────────
 
-# --- COORDINATE SYSTEM CONFIGURATION ---
-PLANET_RADIUS = 2898.805  # km (0.455 * Earth Radius)
-FLIGHT_SPEED = 10.0       # km per minute (Adjust based on your ship speed)
-MIN_TRAVEL_TIME = 5.0     # minutes (Base time for takeoff/landing)
+def is_ignored_source(base_name: str) -> bool:
+    """
+    Returns True for files that should NOT be treated as trade city sources.
+    Currently ignores anything whose base name starts with 'TVI_' (case-insensitive).
+    Add more patterns here as needed.
+    """
+    upper = base_name.upper()
+    return upper.startswith("TVI_") or upper == "TVI"
 
-CITY_COORDINATES = {
-    "Alphaville":  {"lat": -4.426,  "lon": -22.115},
-    "Deadwood":    {"lat": -11.077, "lon": -26.543},
-    "Freedom":     {"lat": -12.812, "lon": 15.938},
-    "Gettysburg":  {"lat": -2.616,  "lon": -35.244},
-    "Kansas":      {"lat": -0.988,  "lon": 22.243},
-    "SovietUnion": {"lat": -8.060,  "lon": -23.212},
-    "Deois":       {"lat": -4.222,  "lon": -26.066},
-    # Cities currently missing coordinates:
-    "Comstock":    None, 
-    "Ederar":      None,
-    "Erie":        None,
-    "Lancaster":   None,
-    "Pimli":       None,
-    "Terrazul":    None,
-}
-
-_REF_PAIRS = [
-    (("Kansas", dst), minutes)
-    for (src, dst), minutes in FLIGHT_TIMES_EXPLICIT.items()
-    if src == "Kansas" and dst in CITIES and "Kansas" in CITIES
-]
-_SPEEDS = []
-for (src, dst), minutes in _REF_PAIRS:
-    dx = CITIES[src]["x"] - CITIES[dst]["x"]
-    dy = CITIES[src]["y"] - CITIES[dst]["y"]
-    dist = math.sqrt(dx * dx + dy * dy)
-    if minutes > 0:
-        _SPEEDS.append(dist / minutes)
-SPEED_UNITS_PER_MIN = sum(_SPEEDS) / len(_SPEEDS) if _SPEEDS else 3.0
-
-def calculate_haversine_distance(lat1, lon1, lat2, lon2):
-    """Calculates the distance in km between two sets of coordinates."""
-    # Convert degrees to radians
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-
-    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlon / 2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    
-    return PLANET_RADIUS * c
-
+# ─────────────────────────────────────────────────────────────────────────────
+# FLIGHT / DISTANCE HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _coord_distance(city_a: str, city_b: str) -> float:
     a = CITIES.get(city_a)
@@ -248,31 +185,18 @@ def _coord_distance(city_a: str, city_b: str) -> float:
     return math.sqrt(dx * dx + dy * dy)
 
 
-def get_flight_time(origin, destination):
-    """Hybrid travel time using explicit routes first, then coordinates, then map distance."""
+def get_flight_time(origin: str, destination: str) -> int:
+    """Total flight time including takeoff and landing (minutes)."""
     if origin == destination:
         return 0
-
-    explicit = (
+    flight_mins = (
         FLIGHT_TIMES_EXPLICIT.get((origin, destination))
         or FLIGHT_TIMES_EXPLICIT.get((destination, origin))
     )
-    if explicit is not None:
-        return TAKEOFF_TIME + explicit + LANDING_TIME
-
-    c1 = CITY_COORDINATES.get(origin)
-    c2 = CITY_COORDINATES.get(destination)
-    if c1 and c2:
-        distance_km = calculate_haversine_distance(c1["lat"], c1["lon"], c2["lat"], c2["lon"])
-        travel_time = (distance_km / FLIGHT_SPEED) + MIN_TRAVEL_TIME
-        return round(travel_time, 1)
-
-    dist = _coord_distance(origin, destination)
-    if dist > 0:
-        return round(TAKEOFF_TIME + (dist / SPEED_UNITS_PER_MIN) + LANDING_TIME, 1)
-
-    return 120
-
+    if flight_mins is None:
+        dist = _coord_distance(origin, destination)
+        flight_mins = round(dist / SPEED_UNITS_PER_MIN) if dist > 0 else 60
+    return TAKEOFF_TIME + flight_mins + LANDING_TIME
 
 
 def calculate_ship_capacity(ship_name: str, containers_used: int = None) -> int:
@@ -290,7 +214,8 @@ def calculate_ship_capacity(ship_name: str, containers_used: int = None) -> int:
 def extract_text_from_image(image_path: str) -> str:
     try:
         img = Image.open(image_path)
-        text = pytesseract.image_to_string(img)
+        custom_config = r'--oem 3 --psm 4'
+        text = pytesseract.image_to_string(img, config=custom_config)
         return text.strip()
     except Exception as e:
         print(f"Error processing {image_path}: {e}")
@@ -301,18 +226,13 @@ def extract_text_from_image(image_path: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def normalize_number(token):
-    if token is None:
-        return None
-    if isinstance(token, (int, float)):
-        return int(token)
-    text = str(token).replace(',', '').strip()
-    clean = re.sub(r'[^0-9.]', '', text)
-    if clean == '':
-        return None
+    if token is None: return 0
+    if isinstance(token, (int, float)): return int(token)
+    text = re.sub(r'[^\d]', '', str(token))
     try:
-        return int(float(clean))
-    except ValueError:
-        return None
+        return int(text) if text else 0
+    except:
+        return 0
 
 
 def is_total_line(line: str) -> bool:
@@ -334,33 +254,37 @@ def detect_layout(lines):
     return 'simple'
 
 
-def parse_table_rows(lines, min_numbers=5, layout='city'):
+def parse_table_rows(text_or_lines, min_numbers=3, layout='city'):
     rows = []
+    lines = text_or_lines if isinstance(text_or_lines, list) else text_or_lines.split('\n')
+
     for line in lines:
-        if is_total_line(line):
-            continue
-        if line.lower().startswith(('commodity type', 'name', 'type', 'population', 'fees')):
-            continue
-        numbers = re.findall(r'[\d,]+', line)
-        if len(numbers) < min_numbers:
-            continue
-        first_number = re.search(r'[\d,]+', line)
-        if not first_number:
-            continue
-        name = line[:first_number.start()].strip()
-        if not name:
-            continue
-        parsed_numbers = [normalize_number(n) for n in numbers[:min_numbers]]
-        row = [name] + parsed_numbers
-        if layout == 'city':
-            qty = parsed_numbers[0] if len(parsed_numbers) > 0 else None
-            sell = parsed_numbers[2] if len(parsed_numbers) > 2 else None
-            if qty and qty > 0 and sell and sell > 0:
-                rows.append(row)
-        elif layout == 'easydock':
-            sell_cr = parsed_numbers[4] if len(parsed_numbers) > 4 else None
-            if sell_cr and sell_cr > 0:
-                rows.append(row)
+        line = line.strip()
+        if not line: continue
+
+        tokens = line.split()
+        numbers_in_line = []
+        name_parts = []
+
+        for t in tokens:
+            if any(char.isdigit() for char in t):
+                numbers_in_line.append(t)
+            else:
+                name_parts.append(t)
+
+        if len(numbers_in_line) >= 3:
+            stock = normalize_number(numbers_in_line[-1])
+            sell  = normalize_number(numbers_in_line[-2])
+            buy   = normalize_number(numbers_in_line[-3])
+
+            name = " ".join(name_parts)
+            name = re.sub(r'[^a-zA-Z\s]', '', name).strip()
+
+            if len(name) < 3 or name.upper() in [c.upper() for c in COMMODITY_CATEGORIES]:
+                continue
+
+            rows.append([name, buy, sell, stock])
+
     return rows
 
 
@@ -456,11 +380,10 @@ def _contrast_text_color(hex_color: str) -> str:
     return '000000' if brightness > 160 else 'FFFFFF'
 
 
-def get_city_fill(city_name):
-    return get_or_create_fill(city_name, CITY_COLOR_MAP)
+def get_city_fill(city: str):
+    color = CITY_COLORS.get(city, 'D9D9D9')
+    return PatternFill(start_color=color, end_color=color, fill_type='solid')
 
-def get_commodity_fill(commodity_name):
-    return get_or_create_fill(commodity_name, COMMODITY_COLOR_MAP)
 
 def _style_header_row(cells):
     for cell in cells:
@@ -536,6 +459,13 @@ def _apply_roi_color(cell, roi_pct):
     else:
         cell.fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
         cell.font = font_white
+
+
+def _add_page_break(ws):
+    """Insert a manual page break after the current last row."""
+    row_num = ws.max_row  # break goes AFTER this row (before max_row+1)
+    ws.row_breaks.append(PageBreak(id=row_num, man=True))
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CATALOG & OPPORTUNITIES
@@ -664,6 +594,11 @@ def assign_grades(
         profit_trip = qty * op["profit_per_mt"]
 
         rental_cost_per_trip = 0
+        if is_rental and rental_cost_per_day:
+            flight_time = get_flight_time(op['source'], op['destination'])
+            total_trip_time = flight_time + 15
+            rental_cost_per_trip = (total_trip_time / 60) * (rental_cost_per_day / 14)
+            cost_trip += rental_cost_per_trip
 
         roi_trip = (profit_trip / cost_trip * 100) if cost_trip > 0 else 0
 
@@ -701,66 +636,59 @@ def assign_grades(
 # TRADE ROUTE ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def find_best_leg(catalog, src, dst, allowed_commodities, ship_capacity, budget):
+def find_best_leg(
+    catalog: dict,
+    src: str,
+    dst: str,
+    allowed_commodities: list,
+    ship_capacity: int,
+    budget: float,
+) -> dict | None:
     best = None
-    # Calculate travel time for this specific leg using your new coordinate system
-    travel_time = get_flight_time(src, dst)
-    
+    src_data = catalog.get(src, {})
+    dst_data = catalog.get(dst, {})
+
     for commodity in allowed_commodities:
-        if src in catalog and commodity in catalog[src] and \
-           dst in catalog and commodity in catalog[dst]:
-            
-            s = catalog[src][commodity]
-            d = catalog[dst][commodity]
-            
-            if s['selling'] is None or d['buying'] is None:
-                continue
-            
-            profit_per_mt = d['buying'] - s['selling']
-            available = s['quantity'] - s['reserve']
-            capacity = d['buy_capacity']
-            
-            if profit_per_mt <= 0 or available <= 0 or capacity <= 0:
-                continue
-                
-            max_by_budget = int(budget / s['selling']) if budget and s['selling'] > 0 else float("inf")
-            qty = min(ship_capacity, available, capacity, max_by_budget)
-            qty = max(qty, 0)
-            
-            if qty <= 0:
-                continue
-                
-            cost = qty * s['selling']
-            profit = qty * profit_per_mt
-            roi = (profit / cost * 100) if cost > 0 else 0
-            
-            if best is None or profit > best['profit']:
-                best = {
-                    'commodity': commodity,
-                    'src': src,
-                    'dst': dst,
-                    'buy_price': s['selling'],
-                    'sell_price': d['buying'],
-                    'profit_per_mt': profit_per_mt,
-                    'qty': qty,
-                    'cost': cost,
-                    'profit': profit,
-                    'roi': roi,
-                    'flight_min': travel_time  # <--- THIS IS THE FIX
-                }
-                
-    # If no profitable commodity was found, still return a "skeleton" leg 
-    # so the script knows the travel time for an empty ship.
-    if best is None:
-        return {
-            'commodity': '— empty —',
-            'src': src,
-            'dst': dst,
-            'buy_price': 0, 'sell_price': 0, 'profit_per_mt': 0,
-            'qty': 0, 'cost': 0, 'profit': 0, 'roi': 0,
-            'flight_min': travel_time  # <--- ALSO ADD HERE
-        }
-        
+        if commodity not in src_data or commodity not in dst_data:
+            continue
+        s = src_data[commodity]
+        d = dst_data[commodity]
+        if s['selling'] is None or d['buying'] is None:
+            continue
+        profit_per_mt = d['buying'] - s['selling']
+        if profit_per_mt <= 0:
+            continue
+
+        available = s.get('sell_capacity', 0) or 0
+        capacity  = d.get('buy_capacity', 0) or 0
+        if available <= 0 or capacity <= 0:
+            continue
+
+        max_by_budget = int(budget / s['selling']) if budget and s['selling'] > 0 else float("inf")
+        qty = min(ship_capacity, available, capacity, max_by_budget)
+        qty = max(qty, 0)
+        if qty <= 0:
+            continue
+
+        cost   = qty * s['selling']
+        profit = qty * profit_per_mt
+        flight = get_flight_time(src, dst)
+        roi    = (profit / cost * 100) if cost > 0 else 0
+
+        if best is None or profit > best['profit']:
+            best = {
+                'commodity':    commodity,
+                'src':          src,
+                'dst':          dst,
+                'buy_price':    s['selling'],
+                'sell_price':   d['buying'],
+                'profit_per_mt':profit_per_mt,
+                'qty':          qty,
+                'cost':         cost,
+                'profit':       profit,
+                'flight_min':   flight,
+                'roi':          roi,
+            }
     return best
 
 
@@ -773,20 +701,10 @@ def compute_trade_routes(
     max_hops: int = 5,
     top_n: int = 20,
 ) -> list:
-    """
-    Generate multi-hop trade routes starting and ending at origin.
-    Each hop carries the best available commodity for that leg.
-    Routes have 2 to max_hops intermediate stops (so 3 to max_hops+1 cities
-    including origin twice as start and end).
-
-    Returns a list of route dicts sorted by total_profit descending.
-    """
     locations = [loc for loc in catalog.keys() if loc != origin]
     all_routes = []
 
-    # Try routes of length 1..max_hops intermediate stops
     for n_stops in range(1, max_hops + 1):
-        # Generate all permutations of n_stops intermediate cities
         for stops in itertools.permutations(locations, n_stops):
             city_sequence = [origin] + list(stops) + [origin]
             legs = []
@@ -804,10 +722,8 @@ def compute_trade_routes(
                     ship_capacity,
                     remaining_budget,
                 )
-                # Last leg (back to origin) can be empty (fly back empty)
                 if leg is None:
                     if i == len(city_sequence) - 2:
-                        # Return leg with no trade — still count flight time
                         legs.append({
                             'commodity':    '— empty —',
                             'src':          src,
@@ -818,8 +734,10 @@ def compute_trade_routes(
                             'qty':          0,
                             'cost':         0,
                             'profit':       0,
+                            'flight_min':   get_flight_time(src, dst),
                             'roi':          0,
                         })
+                        total_time += get_flight_time(src, dst)
                     else:
                         valid = False
                         break
@@ -828,7 +746,6 @@ def compute_trade_routes(
                     total_profit += leg['profit']
                     total_cost   += leg['cost']
                     total_time   += leg['flight_min']
-                    # Update rolling budget: profit from selling funds next purchase
                     if remaining_budget is not None:
                         remaining_budget = remaining_budget - leg['cost'] + leg['profit']
 
@@ -849,7 +766,6 @@ def compute_trade_routes(
                 'cr_per_hour': cr_per_hour,
             })
 
-    # Sort by total profit descending, deduplicate by stop sequence
     seen = set()
     unique_routes = []
     for r in sorted(all_routes, key=lambda x: x['total_profit'], reverse=True):
@@ -867,17 +783,18 @@ def compute_trade_routes(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _write_trade_routes_sheet(ws, routes: list, origin: str):
-    """Write the Trade Route sheet with one block per route."""
-    font_white  = Font(color="FFFFFF", bold=True)
-    font_black  = Font(color="000000", bold=True)
-    alt_fill    = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
+    font_white = Font(color="FFFFFF", bold=True)
+    alt_fill   = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
 
     if not routes:
         ws.append(['No profitable routes found from', origin])
         return
 
     for rank, route in enumerate(routes, 1):
-        # ── Route summary header ──────────────────────────────────────────────
+        # Page break before every route except the first
+        if rank > 1:
+            _add_page_break(ws)
+
         summary_label = (
             f"Route #{rank}  |  "
             f"{' → '.join(route['stops'])}  |  "
@@ -888,7 +805,6 @@ def _write_trade_routes_sheet(ws, routes: list, origin: str):
         )
         ws.append([summary_label])
         title_row = ws.max_row
-        # Merge across 10 columns for readability
         ws.merge_cells(
             start_row=title_row, start_column=1,
             end_row=title_row, end_column=10
@@ -898,7 +814,6 @@ def _write_trade_routes_sheet(ws, routes: list, origin: str):
         title_cell.fill  = get_city_fill(origin)
         title_cell.alignment = Alignment(horizontal="left", vertical="center")
 
-        # ── Legs header ───────────────────────────────────────────────────────
         leg_cols = [
             'Hop', 'From', 'To', 'Commodity',
             'Buy (CR/MT)', 'Sell (CR/MT)', 'Profit/MT',
@@ -907,7 +822,6 @@ def _write_trade_routes_sheet(ws, routes: list, origin: str):
         ws.append(leg_cols)
         _style_header_row(ws[ws.max_row])
 
-        # ── Leg rows ──────────────────────────────────────────────────────────
         for hop_i, leg in enumerate(route['legs'], 1):
             row_data = [
                 hop_i,
@@ -926,28 +840,23 @@ def _write_trade_routes_sheet(ws, routes: list, origin: str):
             ws.append(row_data)
             cur = ws.max_row
 
-            # Colour source city
             src_cell = ws.cell(row=cur, column=2)
             src_fill = get_city_fill(leg['src'])
             src_cell.fill = src_fill
             src_cell.font = Font(color=_contrast_text_color(src_fill.start_color.rgb), bold=True)
 
-            # Colour dest city
             dst_cell = ws.cell(row=cur, column=3)
             dst_fill = get_city_fill(leg['dst'])
             dst_cell.fill = dst_fill
             dst_cell.font = Font(color=_contrast_text_color(dst_fill.start_color.rgb), bold=True)
 
-            # Colour ROI
             roi_cell = ws.cell(row=cur, column=12)
             _apply_roi_color(roi_cell, leg['roi'])
 
-            # Alternating row
             if hop_i % 2 == 0:
                 for col in [1, 4, 5, 6, 7, 8, 9, 10, 11]:
                     ws.cell(row=cur, column=col).fill = alt_fill
 
-        # ── Totals row ────────────────────────────────────────────────────────
         ws.append([
             '', '', '', 'TOTAL',
             '', '', '',
@@ -964,7 +873,6 @@ def _write_trade_routes_sheet(ws, routes: list, origin: str):
             c.fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
         _apply_roi_color(ws.cell(row=tot_row, column=12), route['roi'])
 
-        # Spacer
         ws.append([])
 
     ws.freeze_panes = "A2"
@@ -1037,20 +945,17 @@ def calculate_macro_data(catalog: dict, opportunities: list) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _build_opp_columns(is_rental, rental_cost_per_day):
-    # Start with the core columns including Travel Time at the end
     cols = [
-        "Grade", "Commodity", "Source", "Buy Price (CR/MT)",
-        "Destination", "Sell Price (CR/MT)", "Profit/MT (CR)",
-        "Src Stock (MT)", "Dst Capacity (MT)", "MT loaded per trip",
-        "Trip Cost (CR)", "Trip Profit (CR)", "Trip ROI (%)",
-        "Travel Time (min)"
+        'Grade', 'Commodity', 'Source', 'Buy Price (CR/MT)',
+        'Destination', 'Sell Price (CR/MT)', 'Profit/MT (CR)',
+        'Src Stock (MT)', 'Dst Capacity (MT)', 'MT loaded per trip',
+        'Trip Cost (CR)', 'Trip Profit (CR)',
     ]
-    
-    # Only add rental columns if specifically needed
     if is_rental and rental_cost_per_day:
         cols.append('Rental Cost (CR)')
+    cols.append('Trip ROI (%)')
+    if is_rental and rental_cost_per_day:
         cols.append('Covers Rental?')
-        
     return cols
 
 
@@ -1059,8 +964,6 @@ def _write_opportunities_sheet(
     is_rental, rental_cost_per_day, origin,
     GRADE_COL, ROI_COL
 ):
-    from openpyxl.styles import Font, PatternFill, Alignment
-
     font_white = Font(color="FFFFFF", bold=True)
     font_black = Font(color="000000", bold=True)
     green_fill = PatternFill(start_color="00B050", end_color="00B050", fill_type="solid")
@@ -1076,9 +979,6 @@ def _write_opportunities_sheet(
         profit_trip = op['_profit_trip']
         roi_pct     = op['_roi']
 
-        # FIXED: correct keys
-        travel_time = get_flight_time(op['source'], op['destination'])
-
         row = [
             grade,
             op['commodity'],
@@ -1092,13 +992,12 @@ def _write_opportunities_sheet(
             qty_trip,
             cost_trip,
             profit_trip,
-            roi_pct,
-            travel_time
         ]
-
         if is_rental and rental_cost_per_day:
-            row.append(rental_cost_per_day)
-            row.append("Yes" if profit_trip > rental_cost_per_day else "No")
+            row.append(round(op['_rental_cost'], 2))
+        row.append(round(roi_pct, 2))
+        if is_rental and rental_cost_per_day:
+            row.append("YES" if op.get('covers_rental', False) else "NO")
 
         ws.append(row)
         cur_row = ws.max_row
@@ -1109,29 +1008,7 @@ def _write_opportunities_sheet(
         gc.font = Font(color=gs["font"], bold=True)
         gc.alignment = Alignment(horizontal="center")
 
-        # Columns (adjust if your layout changes)
-        COL_COMMODITY = 2
-        COL_SOURCE = 3
-        COL_DEST = 5
-
-        # --- Commodity color ---
-        commodity_cell = ws.cell(row=cur_row, column=COL_COMMODITY)
-        commodity_fill = get_commodity_fill(op['commodity'])
-        commodity_cell.fill = commodity_fill
-        commodity_cell.font = Font(color=_contrast_text_color(commodity_fill.start_color.rgb), bold=True)
-
-        # --- Source city color ---
-        source_cell = ws.cell(row=cur_row, column=COL_SOURCE)
-        source_fill = get_city_fill(op['source'])
-        source_cell.fill = source_fill
-        source_cell.font = Font(color=_contrast_text_color(source_fill.start_color.rgb), bold=True)
-
-        # --- Destination city color ---
-        dest_cell = ws.cell(row=cur_row, column=COL_DEST)
-        dest_fill = get_city_fill(op['destination'])
-        dest_cell.fill = dest_fill
-        dest_cell.font = Font(color=_contrast_text_color(dest_fill.start_color.rgb), bold=True)
-        
+        source_cell = ws.cell(row=cur_row, column=3)
         source_fill = get_city_fill(op['source'])
         source_cell.fill = source_fill
         source_cell.font = Font(color=_contrast_text_color(source_fill.start_color.rgb), bold=True)
@@ -1141,26 +1018,13 @@ def _write_opportunities_sheet(
 
         if is_rental and rental_cost_per_day:
             rc = ws.cell(row=cur_row, column=len(columns))
-            if rc.value == "Yes":
+            if rc.value == "YES":
                 rc.fill = green_fill; rc.font = font_white
             else:
                 rc.fill = red_fill;   rc.font = font_white
 
     ws.freeze_panes = "B2"
     _auto_size_columns(ws)
-
-
-# --- OPTIONAL: DEBUG SAFETY (recommended) ---
-
-def validate_opportunity(op):
-    required_keys = [
-        'source', 'destination', 'source_selling', 'destination_buying',
-        'source_available', 'destination_capacity',
-        '_qty_trip', '_cost_trip', '_profit_trip', '_roi'
-    ]
-    for k in required_keys:
-        if k not in op:
-            raise ValueError(f"Missing key: {k} in opportunity: {op}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SAVE TO EXCEL
@@ -1177,7 +1041,7 @@ def save_to_excel(
     budget=None,
     containers_used=None,
     mode='regular',
-    trade_route_params=None,   # dict with keys: allowed_commodities, max_hops
+    trade_route_params=None,
 ):
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
@@ -1239,7 +1103,7 @@ def save_to_excel(
             _auto_size_columns(ws)
 
     # ── CATALOG & OPPORTUNITIES ───────────────────────────────────────────────
-    catalog          = build_trade_catalog(data_dict)
+    catalog           = build_trade_catalog(data_dict)
     all_opportunities = find_trade_opportunities(catalog)
 
     if all_opportunities:
@@ -1272,9 +1136,8 @@ def save_to_excel(
                 )
 
     # ── TRADE ROUTES ──────────────────────────────────────────────────────────
-    routes = []
     if mode == 'route' and trade_route_params:
-        allowed = trade_route_params.get('allowed_commodities', COMMODITY_CATEGORIES)
+        allowed  = trade_route_params.get('allowed_commodities', COMMODITY_CATEGORIES)
         max_hops = trade_route_params.get('max_hops', 3)
 
         print(f"\n  Computing trade routes from {origin} (max {max_hops} hops)...")
@@ -1304,23 +1167,13 @@ def save_to_excel(
     # ── MACRO ─────────────────────────────────────────────────────────────────
     opps_for_macro = all_opportunities if all_opportunities else []
     macro_data     = calculate_macro_data(catalog, opps_for_macro)
-    from generate_news_pdf import generate_news_pdf, build_config_data
-
-    config_data = build_config_data(
-        selected_ship=selected_ship,
-        origin=origin
-    )
-
-    generate_news_pdf(
-        macro_data=macro_data,
-        opportunities=all_opportunities,
-        routes=None,
-        config_data=None,
-        output_file=os.path.join("TVI_Output", "The_Vieneo_Index.pdf"),
-        header_image=os.path.join("images", "TVI_Index.jpg")
-    )
     ws_macro       = wb.create_sheet(title='MACRO')
 
+    # Enable sheet-level print settings so page breaks are respected
+    ws_macro.page_setup.fitToPage = False
+    ws_macro.sheet_properties.pageSetUpPr.fitToPage = False
+
+    # ── Section 1: Summary by City ────────────────────────────────────────────
     ws_macro.append(['SUMMARY BY CITY'])
     _style_section_title(ws_macro[1])
     ws_macro.append(['City', 'Total Potential Profit (CR)', 'Num Commodities', 'Num Lucrative Commodities'])
@@ -1330,7 +1183,9 @@ def save_to_excel(
         if i % 2 == 0:
             for cell in ws_macro[i]: cell.fill = alt_fill2
 
+    # ── Section 2: Top 10 by profit ───────────────────────────────────────────
     ws_macro.append([])
+    _add_page_break(ws_macro)
     ws_macro.append(['TOP 10 CITIES BY TOTAL PROFIT'])
     _style_section_title(ws_macro[ws_macro.max_row])
     ws_macro.append(['City', 'Total Profit (CR)', 'Num Lucrative Commodities'])
@@ -1341,7 +1196,9 @@ def save_to_excel(
         if i % 2 == 0:
             for cell in ws_macro[i]: cell.fill = alt_fill2
 
+    # ── Section 3: Top 10 by lucrative commodities ────────────────────────────
     ws_macro.append([])
+    _add_page_break(ws_macro)
     ws_macro.append(['TOP 10 CITIES BY NUMBER OF LUCRATIVE COMMODITIES'])
     _style_section_title(ws_macro[ws_macro.max_row])
     ws_macro.append(['City', 'Num Lucrative Commodities', 'Total Profit (CR)'])
@@ -1352,13 +1209,18 @@ def save_to_excel(
         if i % 2 == 0:
             for cell in ws_macro[i]: cell.fill = alt_fill2
 
+    # ── Section 4: Best sellers/buyers by commodity ───────────────────────────
     ws_macro.append([])
+    _add_page_break(ws_macro)
     ws_macro.append(['BEST SELLERS AND BUYERS BY COMMODITY'])
     _style_section_title(ws_macro[ws_macro.max_row])
 
     for commodity in COMMODITY_CATEGORIES:
         color = COMMODITY_COLORS.get(commodity, "E6E6FA")
+
+        # Each commodity block starts on its own page
         ws_macro.append([])
+        _add_page_break(ws_macro)
         ws_macro.append([f'--- {commodity.upper()} ---'])
         _style_commodity_separator(ws_macro[ws_macro.max_row], color)
 
@@ -1420,7 +1282,6 @@ def _prompt_city(prompt_text: str) -> str:
 
 
 def _prompt_commodities() -> list:
-    """Let the user choose one, several, or all commodity categories."""
     print("\n  Select commodities to trade (you can choose multiple):")
     print("   0. ALL commodities")
     for i, cat in enumerate(COMMODITY_CATEGORIES, 1):
@@ -1451,7 +1312,6 @@ def _prompt_commodities() -> list:
 
 
 def _prompt_max_hops() -> int:
-    """Ask how many intermediate stops (2–5)."""
     print("\n  How many stops maximum (not counting return to origin)?")
     print("  (2 = A→B→C→A, 3 = A→B→C→D→A, up to 5)")
     print("  ⚠  More stops = much longer calculation time.")
@@ -1589,9 +1449,6 @@ def main(image_folder, selected_ship=None, output_file='final_trade.xlsx',
         }
 
     # ── Process images ────────────────────────────────────────────────────────
-    
-    load_color_maps()
-    
     if not os.path.exists(image_folder):
         print(f"\n✗  The folder '{image_folder}' does not exist.")
         return
@@ -1612,8 +1469,16 @@ def main(image_folder, selected_ship=None, output_file='final_trade.xlsx',
     for filename in sorted(os.listdir(image_folder)):
         if not filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
             continue
+
+        # Strip the trailing _N suffix to get the source name
         base_name = filename.rsplit('_', 1)[0]
-        sheet_key = 'EasyDock' if base_name.lower() == 'easydock' else 'Cities'
+
+        # ── FILTER: skip TVI_ files and any other ignored prefixes ────────────
+        if is_ignored_source(base_name):
+            print(f"  ⏭  Skipped (ignored source): {filename}")
+            continue
+
+        sheet_key  = 'EasyDock' if base_name.lower() == 'easydock' else 'Cities'
         image_path = os.path.join(image_folder, filename)
         text = extract_text_from_image(image_path)
         if text:
@@ -1626,7 +1491,7 @@ def main(image_folder, selected_ship=None, output_file='final_trade.xlsx',
             print(f"  ✗ No text extracted: {filename}")
 
     if data_dict['Cities']['rows'] or data_dict['EasyDock']['rows']:
-        catalog      = build_trade_catalog(data_dict)
+        catalog       = build_trade_catalog(data_dict)
         opportunities = find_trade_opportunities(catalog)
 
         print(f"\n{'='*60}")
