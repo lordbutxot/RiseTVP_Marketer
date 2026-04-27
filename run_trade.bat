@@ -14,12 +14,15 @@ echo.
 echo Select mode:
 echo 1. Regular Trade (all opportunities)
 echo 2. City-Specific Opportunities
-set /p mode="Enter 1 or 2: "
+echo 3. Trade Route (multi-hop chained routes)
+set /p mode="Enter 1, 2 or 3: "
 
 if "%mode%"=="1" (
     "%PYTHON%" "%~dp0ocr_to_excel.py" --mode regular %*
 ) else if "%mode%"=="2" (
     "%PYTHON%" "%~dp0ocr_to_excel.py" --mode city %*
+) else if "%mode%"=="3" (
+    "%PYTHON%" "%~dp0ocr_to_excel.py" --mode route %*
 ) else (
     echo Invalid choice.
     pause
