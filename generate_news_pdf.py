@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import os
 import re
 from collections import defaultdict
@@ -13,6 +14,7 @@ from reportlab.platypus import CondPageBreak, Image, KeepTogether, PageBreak, Pa
 
 NEWSPAPER_NAME = "The Vieneo Index"
 DEFAULT_OUTPUT = "The_Vieneo_Index.pdf"
+ADS_STATE_FILE = ".tvi_ads_state.json"
 
 
 def build_config_data(selected_ship=None, origin=None, ship_capacity=None, budget=None, status=None):
@@ -52,6 +54,42 @@ def _load_header_image(header_image):
     if os.path.exists(fallback):
         return fallback
     return None
+
+
+def _find_ad_library():
+    image_dir = "images"
+    if not os.path.isdir(image_dir):
+        return []
+    ads = []
+    for name in sorted(os.listdir(image_dir)):
+        upper = name.upper()
+        if upper.startswith("TVI_AD") and upper.endswith((".PNG", ".JPG", ".JPEG", ".WEBP")):
+            ads.append(os.path.join(image_dir, name))
+    return ads
+
+
+def _load_rotating_ads(slot_count=3):
+    ads = _find_ad_library()
+    if not ads:
+        return [None] * slot_count
+
+    offset = 0
+    if os.path.exists(ADS_STATE_FILE):
+        try:
+            with open(ADS_STATE_FILE, "r", encoding="utf-8") as handle:
+                offset = int(json.load(handle).get("offset", 0))
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            offset = 0
+
+    chosen = [ads[(offset + idx) % len(ads)] for idx in range(slot_count)]
+
+    try:
+        with open(ADS_STATE_FILE, "w", encoding="utf-8") as handle:
+            json.dump({"offset": (offset + 1) % len(ads)}, handle)
+    except OSError:
+        pass
+
+    return chosen
 
 
 def _newspaper_styles():
@@ -108,8 +146,8 @@ def _newspaper_styles():
             "Section",
             parent=styles["Heading2"],
             fontName="Helvetica-Bold",
-            fontSize=11,
-            leading=13,
+            fontSize=10.5,
+            leading=12,
             textColor=colors.HexColor("#8A1538"),
             spaceBefore=4,
             spaceAfter=4,
@@ -118,8 +156,8 @@ def _newspaper_styles():
             "Body",
             parent=styles["BodyText"],
             fontName="Times-Roman",
-            fontSize=9.2,
-            leading=12,
+            fontSize=8.8,
+            leading=11,
             textColor=colors.HexColor("#1C1C1C"),
             spaceAfter=4,
         ),
@@ -136,8 +174,8 @@ def _newspaper_styles():
             "TableTitle",
             parent=styles["Heading3"],
             fontName="Helvetica-Bold",
-            fontSize=9,
-            leading=11,
+            fontSize=8.2,
+            leading=10,
             textColor=colors.HexColor("#101010"),
             spaceAfter=3,
         ),
@@ -200,21 +238,48 @@ def _make_table(title, headers, rows, col_widths, header_fill="#E9E2D0", accent=
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(header_fill)),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#101010")),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("LEADING", (0, 0), (-1, -1), 10),
+                ("FONTSIZE", (0, 0), (-1, -1), 7.4),
+                ("LEADING", (0, 0), (-1, -1), 9),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#BEB7A4")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8F5EF")]),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#BEB7A4")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#FBFAF6")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
                 ("LINEABOVE", (0, 0), (-1, 0), 1, colors.HexColor(accent)),
                 ("LINEBELOW", (0, 0), (-1, 0), 1, colors.HexColor(accent)),
             ]
         )
     )
     return KeepTogether([Paragraph(title, _newspaper_styles()["table_title"]), Spacer(1, 2), table])
+
+
+def _ad_slot(styles, image_path, slot_label):
+    if image_path and os.path.exists(image_path):
+        block = [
+            Paragraph(slot_label, styles["table_title"]),
+            Image(image_path, width=186 * mm, height=28 * mm),
+            Spacer(1, 5),
+        ]
+        return KeepTogether(block)
+
+    placeholder = Table(
+        [[Paragraph("Reserved advertising space", styles["brief"])]],
+        colWidths=[186 * mm],
+        rowHeights=[28 * mm],
+    )
+    placeholder.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#8A1538")),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F7F1E4")),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+    return KeepTogether([Paragraph(slot_label, styles["table_title"]), placeholder, Spacer(1, 5)])
 
 
 def _section_block(styles, title, elements, min_space_mm=24):
@@ -362,6 +427,7 @@ def generate_news_pdf(
     ads_images=None,
 ):
     styles = _newspaper_styles()
+    rotating_ads = ads_images if ads_images is not None else _load_rotating_ads(3)
     doc = SimpleDocTemplate(
         output_file,
         pagesize=A4,
@@ -426,6 +492,7 @@ def generate_news_pdf(
             route_tables.append(Spacer(1, 5))
     if route_tables:
         story.extend(_section_block(styles, "Route Desk", route_tables))
+        story.append(_ad_slot(styles, rotating_ads[0] if len(rotating_ads) > 0 else None, "Sponsored Placement I"))
 
     city_rows = _make_city_rows(macro_data.get("city_summary", []))
     commodity_rows = _make_commodity_rows(macro_data)
@@ -469,6 +536,7 @@ def generate_news_pdf(
 
     if ledger_elements:
         story.append(PageBreak())
+        ledger_elements.append(_ad_slot(styles, rotating_ads[1] if len(rotating_ads) > 1 else None, "Sponsored Placement II"))
         story.extend(_section_block(styles, "Provincial Ledger", ledger_elements))
 
     commodity_analysis_rows = _make_commodity_analysis_rows(macro_data)
@@ -486,6 +554,7 @@ def generate_news_pdf(
                 col_widths=[46 * mm, 30 * mm, 40 * mm, 44 * mm, 26 * mm],
             ),
             Spacer(1, 5),
+            _ad_slot(styles, rotating_ads[2] if len(rotating_ads) > 2 else None, "Sponsored Placement III"),
         ]
         story.extend(_section_block(styles, "Commodity Analysis", commodity_analysis_elements))
 
@@ -518,17 +587,6 @@ def generate_news_pdf(
                 Spacer(1, 5),
             ]
             story.extend(_section_block(styles, "Exchange Floor", exchange_elements))
-
-    if ads_images:
-        rendered_ads = []
-        for image_path in ads_images[:2]:
-            if os.path.exists(image_path):
-                rendered_ads.append(Image(image_path, width=180 * mm, height=28 * mm))
-        if rendered_ads:
-            story.extend(_section_block(styles, "Sponsored Reports", []))
-            for ad in rendered_ads:
-                story.append(ad)
-                story.append(Spacer(1, 4))
 
     closing = (
         "Editorial desk: The Vieneo Index ranks routes by current price spread per MT and published trade capacity. "
