@@ -1316,7 +1316,7 @@ def save_to_excel(
         opportunities=all_opportunities,
         routes=None,
         config_data=None,
-        output_file="The_Vieneo_Index.pdf",
+        output_file=os.path.join("TVI_Output", "The_Vieneo_Index.pdf"),
         header_image=os.path.join("images", "TVI_Index.jpg")
     )
     ws_macro       = wb.create_sheet(title='MACRO')

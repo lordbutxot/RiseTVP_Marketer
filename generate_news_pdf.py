@@ -13,7 +13,8 @@ from reportlab.platypus import CondPageBreak, Image, KeepTogether, PageBreak, Pa
 
 
 NEWSPAPER_NAME = "The Vieneo Index"
-DEFAULT_OUTPUT = "The_Vieneo_Index.pdf"
+DEFAULT_IMAGE_OUTPUT_DIR = "TVI_Output"
+DEFAULT_OUTPUT = os.path.join(DEFAULT_IMAGE_OUTPUT_DIR, "The_Vieneo_Index.pdf")
 ADS_STATE_FILE = ".tvi_ads_state.json"
 
 
@@ -90,6 +91,24 @@ def _load_rotating_ads(slot_count=3):
         pass
 
     return chosen
+
+
+def _export_pdf_pages_as_images(pdf_path, output_dir=DEFAULT_IMAGE_OUTPUT_DIR, zoom=2.0):
+    import fitz
+
+    os.makedirs(output_dir, exist_ok=True)
+    base_name = os.path.splitext(os.path.basename(pdf_path))[0]
+
+    doc = fitz.open(pdf_path)
+    try:
+        matrix = fitz.Matrix(zoom, zoom)
+        for page_index in range(len(doc)):
+            page = doc.load_page(page_index)
+            pix = page.get_pixmap(matrix=matrix, alpha=False)
+            out_path = os.path.join(output_dir, f"{base_name}_page_{page_index + 1:02d}.png")
+            pix.save(out_path)
+    finally:
+        doc.close()
 
 
 def _newspaper_styles():
@@ -248,8 +267,7 @@ def _build_opinion_opening(macro_data, opportunities):
     if top_city and runner_up:
         gap = max((top_city.get("total_profit", 0) - runner_up.get("total_profit", 0)), 0)
         lines.append(
-            f"The province opens today with clear leadership from {top_city['city']}, which sits {_fmt_cr(gap)} ahead of the next city in mapped total margin. "
-            f"That kind of separation usually means traders are not looking at one lucky lane, but at a full local market with enough depth to keep capital circulating."
+            f"{top_city['city']} opens the day {_fmt_cr(gap)} ahead of the next city in mapped margin, a sign of broad local depth rather than one isolated route."
         )
     elif top_city:
         lines.append(
@@ -258,8 +276,7 @@ def _build_opinion_opening(macro_data, opportunities):
 
     if best_route:
         lines.append(
-            f"The sharpest pricing signal is still route-based rather than city-wide: {best_route['commodity']} moving from {best_route['source']} to {best_route['destination']} yields {_fmt_cr(best_route.get('profit_per_mt', 0))} per MT. "
-            f"When unit margins stay this elevated, disciplined haulers usually outperform broad speculative buying."
+            f"The sharpest signal remains {best_route['commodity']} from {best_route['source']} to {best_route['destination']}, yielding {_fmt_cr(best_route.get('profit_per_mt', 0))} per MT."
         )
 
     return " ".join(lines) or "Capital remains selective across The Vineo Province, rewarding traders who follow unit spread rather than noise."
@@ -274,13 +291,11 @@ def _build_opinion_mid(macro_data):
     if commodity_rows:
         lead = commodity_rows[0]
         lines.append(
-            f"Commodity leadership is being defined by {lead[0]}, where the current spread has widened to {lead[1]} between accumulation and sell-side demand. "
-            f"That is the kind of pricing gap that pulls attention away from mediocre diversified routes and back toward focused cargo selection."
+            f"{lead[0]} leads the commodity board with a {lead[1]} spread, keeping attention on focused cargo rather than diluted routing."
         )
     if active_cities:
         lines.append(
-            f"At the city level, {len(active_cities)} markets are carrying at least three lucrative goods, which suggests the province is not running on one isolated imbalance. "
-            f"Instead, the broader signal is one of distributed opportunity: enough breadth for planners, enough volatility for opportunists."
+            f"{len(active_cities)} cities are carrying at least three lucrative goods, pointing to distributed opportunity across the province."
         )
 
     return " ".join(lines) or "The daily board suggests a market with enough breadth to reward planning and enough dispersion to punish lazy routing."
@@ -491,6 +506,45 @@ def _make_commodity_analysis_rows(macro_data, limit=10):
     return rows[:limit]
 
 
+def _make_profitable_commodity_leaderboard(opportunities, limit=8):
+    grouped = {}
+    for op in opportunities or []:
+        commodity = op.get("commodity")
+        if not commodity:
+            continue
+        bucket = grouped.setdefault(
+            commodity,
+            {
+                "count": 0,
+                "total_margin": 0,
+                "best_margin": 0,
+                "best_route": "",
+            },
+        )
+        margin = op.get("profit_per_mt", 0) or 0
+        bucket["count"] += 1
+        bucket["total_margin"] += margin
+        if margin > bucket["best_margin"]:
+            bucket["best_margin"] = margin
+            bucket["best_route"] = f"{op.get('source', '-')} -> {op.get('destination', '-')}"
+
+    rows = []
+    for commodity, data in grouped.items():
+        avg_margin = data["total_margin"] / data["count"] if data["count"] else 0
+        rows.append(
+            [
+                commodity,
+                _fmt_cr(round(avg_margin)),
+                _fmt_cr(data["best_margin"]),
+                str(data["count"]),
+                data["best_route"],
+            ]
+        )
+
+    rows.sort(key=lambda item: int(item[2].replace(",", "").split()[0]), reverse=True)
+    return rows[:limit]
+
+
 def _make_trade_chain_rows(routes, limit=5):
     rows = []
     for route in (routes or [])[:limit]:
@@ -513,6 +567,7 @@ def generate_news_pdf(
     output_file=DEFAULT_OUTPUT,
     header_image=None,
     ads_images=None,
+    image_output_dir=DEFAULT_IMAGE_OUTPUT_DIR,
 ):
     styles = _newspaper_styles()
     rotating_ads = ads_images if ads_images is not None else _load_rotating_ads(3)
@@ -677,6 +732,23 @@ def generate_news_pdf(
             ]
             story.extend(_section_block(styles, "Exchange Floor", exchange_elements))
 
+    commodity_leaderboard_rows = _make_profitable_commodity_leaderboard(opportunities or [])
+    if commodity_leaderboard_rows:
+        leaderboard_elements = [
+            Paragraph(
+                "A final profitability board ranking the commodities that are producing the strongest trading conditions across the widest set of routes.",
+                styles["body"],
+            ),
+            _make_table(
+                title="Profitable Commodity Leaderboard",
+                headers=["Commodity", "Avg Margin / MT", "Best Margin / MT", "Live Routes", "Best Route"],
+                rows=commodity_leaderboard_rows,
+                col_widths=[34 * mm, 32 * mm, 32 * mm, 22 * mm, 66 * mm],
+            ),
+            Spacer(1, 3),
+        ]
+        story.extend(_section_block(styles, "Commodity Leaderboard", leaderboard_elements))
+
     closing = _build_opinion_closing(macro_data, opportunities or [])
     story.extend(_section_block(styles, "Closing Opinion", [Paragraph(closing, styles["body"])]))
     story.append(Paragraph("Quote of the Day", styles["table_title"]))
@@ -686,6 +758,7 @@ def generate_news_pdf(
     story.append(Paragraph("Editorial desk: refreshed from live provincial trade sheets.", styles["footer"]))
 
     doc.build(story, onFirstPage=_draw_page_chrome, onLaterPages=_draw_page_chrome)
+    _export_pdf_pages_as_images(output_file, output_dir=image_output_dir)
     print(f"The Vieneo Index generated: {output_file}")
 
 
@@ -696,7 +769,7 @@ def _find_sheet(workbook, prefix):
     return None
 
 
-def build_news_from_workbook(workbook_path, output_file=DEFAULT_OUTPUT, header_image=None):
+def build_news_from_workbook(workbook_path, output_file=DEFAULT_OUTPUT, header_image=None, image_output_dir=DEFAULT_IMAGE_OUTPUT_DIR):
     import openpyxl
 
     wb = openpyxl.load_workbook(workbook_path, data_only=True)
@@ -860,6 +933,7 @@ def build_news_from_workbook(workbook_path, output_file=DEFAULT_OUTPUT, header_i
         config_data=config_data,
         output_file=output_file,
         header_image=header_image,
+        image_output_dir=image_output_dir,
     )
 
 
@@ -868,10 +942,12 @@ if __name__ == "__main__":
     parser.add_argument("--workbook", default="final_trade.xlsx", help="Workbook used to build the newspaper.")
     parser.add_argument("--output", default=DEFAULT_OUTPUT, help="PDF output path.")
     parser.add_argument("--header-image", default=None, help="Optional masthead image path.")
+    parser.add_argument("--image-output-dir", default=DEFAULT_IMAGE_OUTPUT_DIR, help="Folder where PDF pages will also be exported as images.")
     args = parser.parse_args()
 
     build_news_from_workbook(
         workbook_path=args.workbook,
         output_file=args.output,
         header_image=args.header_image,
+        image_output_dir=args.image_output_dir,
     )
