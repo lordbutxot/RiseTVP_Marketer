@@ -203,7 +203,7 @@ def extract_text_from_image(image_path: str) -> str:
         
         # Esta es la configuración que ayuda a Tesseract a no saltarse dígitos 
         # y a entender que el texto está organizado en bloques/tablas.
-        custom_config = r'--oem 3 --psm 6' 
+        custom_config = r'--oem 3 --psm 4'
         
         text = pytesseract.image_to_string(img, config=custom_config)
         return text.strip()
@@ -216,35 +216,20 @@ def extract_text_from_image(image_path: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def normalize_number(token):
-    if token is None:
-        return 0
-    if isinstance(token, (int, float)):
-        return int(token)
+    """
+    Limpia el texto y devuelve un entero. 
+    Elimina puntos, comas y basura del OCR para evitar errores en números de 4 dígitos.
+    """
+    if token is None: return 0
+    if isinstance(token, (int, float)): return int(token)
     
-    text = str(token).strip()
-    
-    # Paso 1: Si el OCR detectó algo como "8.777,00" o "8,777", 
-    # primero normalizamos eliminando lo que NO sea dígito, punto o coma.
-    text = re.sub(r'[^\d.,]', '', text)
-    
-    # Paso 2: Manejo inteligente de decimales vs miles.
-    # Si hay un punto/coma seguido de solo 1 o 2 dígitos al final, 
-    # probablemente es un decimal (que en este juego parece que no usas para MT).
-    # Si hay 3 dígitos, es un separador de miles.
-    if len(text) > 3:
-        # Si el penúltimo o antepenúltimo carácter es separador, es decimal.
-        if text[-3] in '.,': # Caso .XX
-            text = text [:-3]
-        elif text[-2] in '.,': # Caso .X
-            text = text[:-2]
-
-    # Paso 3: Ahora sí, eliminamos cualquier rastro de puntuación 
-    # para unir los miles (ej: "8.777" -> "8777")
-    clean = re.sub(r'[.,]', '', text)
+    # Quitamos todo lo que no sea un número (0-9)
+    # Esto hace que "8.777" -> "8777" e "i) 250" -> "250"
+    text = re.sub(r'[^\d]', '', str(token))
     
     try:
-        return int(clean) if clean else 0
-    except ValueError:
+        return int(text) if text else 0
+    except:
         return 0
 
 
@@ -268,39 +253,47 @@ def detect_layout(lines):
     return 'simple'
 
 
-def parse_table_rows(lines, min_numbers=5, layout='city'):
+def parse_table_rows(text_or_lines, min_numbers=3, layout='city'):
+    """
+    Extrae datos de forma robusta asignando los últimos 3 números a Stock, Sell y Buy.
+    Limpia los nombres de productos para asegurar coincidencias entre ciudades.
+    """
     rows = []
+    lines = text_or_lines if isinstance(text_or_lines, list) else text_or_lines.split('\n')
+    
     for line in lines:
-        if is_total_line(line):
-            continue
-        if line.lower().startswith(('commodity type', 'name', 'type', 'population', 'fees')):
-            continue
-            
-        # CAMBIO CLAVE: Buscamos grupos de números más largos o pegados
-        # Esta regex es más permisiva para capturar el número entero aunque tenga ruido
-        numbers = re.findall(r'[\d.,]+', line)
+        line = line.strip()
+        if not line: continue
         
-        if len(numbers) < min_numbers:
-            continue
-            
-        first_number_match = re.search(r'[\d.,]+', line)
-        if not first_number_match:
-            continue
-            
-        name = line[:first_number_match.start()].strip()
-        if not name:
-            continue
-            
-        parsed_numbers = [normalize_number(n) for n in numbers[:min_numbers]]
-        row = [name] + parsed_numbers
+        tokens = line.split()
+        numbers_in_line = []
+        name_parts = []
         
-        # Validación de fila real
-        if layout == 'city':
-            sell = parsed_numbers[2] if len(parsed_numbers) > 2 else None
-            if sell and sell > 0:
-                rows.append(row)
-        elif layout == 'easydock':
-            rows.append(row)
+        for t in tokens:
+            # Si el token contiene dígitos, es un valor de la tabla
+            if any(char.isdigit() for char in t):
+                numbers_in_line.append(t)
+            else:
+                # Si no tiene números, es parte del nombre del producto
+                name_parts.append(t)
+        
+        # Necesitamos al menos Buy, Sell y Stock (3 números)
+        if len(numbers_in_line) >= 3:
+            stock = normalize_number(numbers_in_line[-1])
+            sell  = normalize_number(numbers_in_line[-2])
+            buy   = normalize_number(numbers_in_line[-3])
+            
+            # Unimos las palabras del nombre y quitamos símbolos raros (|, ), etc.)
+            name = " ".join(name_parts)
+            name = re.sub(r'[^a-zA-Z\s]', '', name).strip() 
+            
+            # Ignorar si el nombre quedó vacío o es solo una letra suelta (basura OCR)
+            if len(name) < 3 or name.upper() in [c.upper() for c in COMMODITY_CATEGORIES]:
+                continue
+            
+            # Retornamos formato lista [Nombre, Buy, Sell, Stock]
+            rows.append([name, buy, sell, stock])
+            
     return rows
 
 
