@@ -1,0 +1,15 @@
+# Rise TVP Trade Route Optimizer — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# OCR engine wrapper
+pytesseract>=0.3.10
+
+# Image handling
+Pillow>=10.0.0
+
+# Excel read/write
+openpyxl>=3.1.0
+
+# ── Optional: only needed for generate_news_pdf.py ──────────────────────────
+# reportlab>=4.0.0     # PDF generation
+# PyMuPDF>=1.23.0      # Export PDF pages as images (fitz)
