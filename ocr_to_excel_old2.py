@@ -129,7 +129,7 @@ CITY_COORDINATES = {
     "Gettysburg":  {"lat": -2.616,  "lon": -35.244},
     "Kansas":      {"lat": -0.988,  "lon":  22.243},
     "SovietUnion": {"lat": -8.060,  "lon": -23.212},
-    "Delois Spot": {"lat": -4.222,  "lon": -26.066},
+    "Deois":       {"lat": -4.222,  "lon": -26.066},
     # Coordinates not yet confirmed — fall back to map-pixel distance:
     "Comstock":  None,
     "Ederar":    None,
@@ -272,7 +272,7 @@ def extract_text_from_image(image_path: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # City screenshot: exactly 7 data rows, always in this fixed order.
-# Positional AND keyword matching — dual strategy for maximum accuracy.
+# Positional parsing maps each data row directly to the right commodity.
 CITY_ROW_ORDER = [
     "Rare/Precious",
     "Foodstuffs",
@@ -284,34 +284,17 @@ CITY_ROW_ORDER = [
 ]
 assert CITY_ROW_ORDER == COMMODITY_CATEGORIES, "Row order must match COMMODITY_CATEGORIES"
 
-# Keywords used to identify each commodity row even if position drifts.
-# Every entry must be unique enough not to false-match another row.
-CITY_ROW_KEYWORDS = {
-    "Rare/Precious":       ("rare", "precious"),
-    "Foodstuffs":          ("food",),
-    "Natural Materials":   ("natural",),
-    "Fuel Ore":            ("fuel ore", "ore"),
-    "Consumer Goods":      ("consumer",),
-    "Fabricated Material": ("fabricated",),
-    "Refined Fuel":        ("refined",),
-}
-
-# City column layout — numbers extracted after the leading text label:
+# City column layout (after stripping the leading commodity-name text):
 #   col 0 → Quantity MT
 #   col 1 → Reserve MT
 #   col 2 → Selling CR/MT
 #   col 3 → Buying CR/MT
 #   col 4 → Maximum MT
-CITY_COL_QTY  = 0
-CITY_COL_RES  = 1
-CITY_COL_SELL = 2
-CITY_COL_BUY  = 3
-CITY_COL_MAX  = 4
-
-# City screen column header line — used to anchor the data block precisely.
-# OCR may capitalise differently, so we match case-insensitively.
-CITY_HEADER_KEYWORDS = ("commodity type", "quantity mt", "reserve mt",
-                        "selling cr/mt", "buying cr/mt", "maximum mt")
+CITY_COL_QTY    = 0
+CITY_COL_RES    = 1
+CITY_COL_SELL   = 2
+CITY_COL_BUY    = 3
+CITY_COL_MAX    = 4
 
 # EasyDock column layout (numbers only, after name):
 #   col 0 → MT (stock)
@@ -319,16 +302,17 @@ CITY_HEADER_KEYWORDS = ("commodity type", "quantity mt", "reserve mt",
 #   col 2 → Buying CR
 #   col 3 → Selling MT
 #   col 4 → Selling CR
-DOCK_COL_MT      = 0
-DOCK_COL_BUY_MT  = 1
-DOCK_COL_BUY_CR  = 2
-DOCK_COL_SELL_MT = 3
-DOCK_COL_SELL_CR = 4
+DOCK_COL_MT     = 0
+DOCK_COL_BUY_MT = 1
+DOCK_COL_BUY_CR = 2
+DOCK_COL_SELL_MT= 3
+DOCK_COL_SELL_CR= 4
 
-# Lines containing these keywords are UI chrome, not data rows.
+# Lines that mark non-data content we must skip
 _SKIP_KEYWORDS = (
     "totals", "refresh", "cancel", "population",
     "fees", "ports staffed", "mt free", "cr free",
+    "commodity type", "name", "type",
 )
 
 
@@ -355,12 +339,6 @@ def _is_skip_line(line: str) -> bool:
     return any(kw in low for kw in _SKIP_KEYWORDS)
 
 
-def _is_header_line(line: str) -> bool:
-    """True if the line is the city column-header row."""
-    low = line.lower()
-    return sum(1 for kw in CITY_HEADER_KEYWORDS if kw in low) >= 3
-
-
 def detect_layout(lines: list[str]) -> str:
     joined = " ".join(lines).lower()
     if any(k in joined for k in ["commodity type", "reserve mt", "selling cr/mt",
@@ -377,9 +355,11 @@ def _parse_totals_line(line: str) -> dict | None:
       'Totals  64,345 / 65,535 MT  97,339,730 CR'
     Returns {'mt_used': int, 'mt_total': int, 'cr_total': int} or None.
     """
-    if "total" not in line.lower():
+    low = line.lower()
+    if "total" not in low:
         return None
     numbers = _extract_numbers(line)
+    # Expect at least 3 numbers: mt_used, mt_total, cr_total
     if len(numbers) >= 3 and all(n is not None for n in numbers[:3]):
         return {
             "mt_used":  numbers[0],
@@ -389,44 +369,19 @@ def _parse_totals_line(line: str) -> dict | None:
     return None
 
 
-def _keyword_match_commodity(line: str) -> str | None:
+def _candidate_data_lines(lines: list[str]) -> list[str]:
     """
-    Return the canonical commodity name if any keyword matches the line,
-    otherwise None.  Used as a cross-check against positional assignment.
-    """
-    low = line.lower()
-    for commodity, keywords in CITY_ROW_KEYWORDS.items():
-        if any(kw in low for kw in keywords):
-            return commodity
-    return None
-
-
-def _candidate_city_lines(lines: list[str]) -> list[str]:
-    """
-    Return lines that are plausible city commodity rows:
+    Return lines that look like commodity data rows:
     - Not a skip/header line
-    - Contains at least 2 numbers (tolerates OCR dropping zeros)
+    - Contains at least 5 numbers
     - Has a non-empty text prefix before the first number
-    Lines are returned in document order, starting from the row after the
-    column-header line (anchored parsing) when the header is found.
     """
-    # Try to anchor on the column-header line first
-    header_idx = None
-    for i, line in enumerate(lines):
-        if _is_header_line(line):
-            header_idx = i
-            break
-
-    search_lines = lines[header_idx + 1:] if header_idx is not None else lines
-
     result = []
-    for line in search_lines:
+    for line in lines:
         if _is_skip_line(line):
             continue
-        if _is_header_line(line):
-            continue
         nums = _extract_numbers(line)
-        if len(nums) < 2:          # reduced threshold — zeros may be dropped by OCR
+        if len(nums) < 5:
             continue
         first_num = re.search(r"[\d,]+", line)
         if not first_num:
@@ -440,116 +395,71 @@ def _candidate_city_lines(lines: list[str]) -> list[str]:
 
 def _parse_city_rows(lines: list[str]) -> tuple[list, dict | None]:
     """
-    Parse the 7 city commodity rows using a dual strategy:
-
-    1. PRIMARY — keyword match: identify each row by commodity keyword in the
-       OCR text (e.g. "fuel" → Fuel Ore).  This is order-independent.
-    2. FALLBACK — positional match: if keyword matching leaves gaps (e.g. a
-       commodity whose name was completely garbled), fill remaining slots in
-       document order.
-
-    All 7 rows are always emitted — zero-stock rows are included so that
-    buying prices are preserved for analysis even when a city holds nothing.
+    Use positional logic: the first 7 candidate data lines map 1-to-1
+    onto CITY_ROW_ORDER. This is robust regardless of OCR name quality.
 
     Returns (rows, totals_dict).
-    Row format: [Category, Commodity Type, Qty MT, Reserve MT,
-                 Sell CR/MT, Buy CR/MT, Max MT]
+    City rows: [Category, Commodity Type, Qty MT, Reserve MT, Sell CR/MT, Buy CR/MT, Max MT]
     """
+    data_lines = _candidate_data_lines(lines)
     totals = None
+
+    # Extract totals from raw lines first (not filtered)
     for line in lines:
         t = _parse_totals_line(line)
         if t:
             totals = t
             break
 
-    data_lines = _candidate_city_lines(lines)
-
-    # --- Pass 1: keyword assignment ---
-    assigned: dict[str, str] = {}   # commodity → line
-    unmatched_lines: list[str] = []
-    for line in data_lines:
-        commodity = _keyword_match_commodity(line)
-        if commodity and commodity not in assigned:
-            assigned[commodity] = line
-        else:
-            unmatched_lines.append(line)
-
-    # --- Pass 2: positional fill for commodities not yet matched ---
-    remaining_commodities = [c for c in CITY_ROW_ORDER if c not in assigned]
-    for commodity, line in zip(remaining_commodities, unmatched_lines):
-        assigned[commodity] = line
-
-    # --- Build output rows in canonical order ---
     rows = []
-    for commodity in CITY_ROW_ORDER:
-        line = assigned.get(commodity)
-        if line is None:
-            # Commodity not found at all — emit zero row so the sheet is complete
-            rows.append([commodity, commodity, 0, 0, 0, 0, 0])
-            continue
-
+    for idx, line in enumerate(data_lines[:len(CITY_ROW_ORDER)]):
+        commodity = CITY_ROW_ORDER[idx]
         nums = _extract_numbers(line)
 
-        def _n(idx):
-            return nums[idx] if len(nums) > idx and nums[idx] is not None else 0
+        qty  = nums[CITY_COL_QTY]  if len(nums) > CITY_COL_QTY  else None
+        res  = nums[CITY_COL_RES]  if len(nums) > CITY_COL_RES  else None
+        sell = nums[CITY_COL_SELL] if len(nums) > CITY_COL_SELL else None
+        buy  = nums[CITY_COL_BUY]  if len(nums) > CITY_COL_BUY  else None
+        mx   = nums[CITY_COL_MAX]  if len(nums) > CITY_COL_MAX  else None
 
-        # Zero-stock rows are kept — buying price is still useful data.
-        rows.append([
-            commodity, commodity,
-            _n(CITY_COL_QTY),
-            _n(CITY_COL_RES),
-            _n(CITY_COL_SELL),
-            _n(CITY_COL_BUY),
-            _n(CITY_COL_MAX),
-        ])
+        # Only include rows where there is something to trade
+        if (qty is not None and qty > 0) or (mx is not None and mx > 0):
+            rows.append([commodity, commodity, qty or 0, res or 0, sell or 0, buy or 0, mx or 0])
 
     return rows, totals
 
 
 def _parse_easydock_rows(lines: list[str]) -> list:
     """
-    EasyDock commodities are not in fixed order; use name-prefix + positional
-    column numbers.  All rows with a price (sell or buy) are kept, including
-    zero-stock rows, so buying prices are visible for analysis.
+    EasyDock has named commodities in non-fixed order.
+    Fall back to name-prefix + positional numbers within each row.
 
     Returns rows: [Category, Name, MT, Buying MT, Buying CR, Selling MT, Selling CR]
     """
-    result = []
-    for line in lines:
-        if _is_skip_line(line):
-            continue
-        if _is_header_line(line):
-            continue
+    data_lines = _candidate_data_lines(lines)
+    rows = []
+    for line in data_lines:
         nums = _extract_numbers(line)
-        if len(nums) < 2:          # at least a price must be present
-            continue
         first_num = re.search(r"[\d,]+", line)
         if not first_num:
             continue
         name = line[: first_num.start()].strip()
-        if not name:
-            continue
         category = _infer_category(name)
 
-        def _n(idx):
-            return nums[idx] if len(nums) > idx and nums[idx] is not None else 0
+        sell_cr = nums[DOCK_COL_SELL_CR] if len(nums) > DOCK_COL_SELL_CR else None
+        if not sell_cr or sell_cr <= 0:
+            continue  # Nothing being sold — skip
 
-        sell_cr = _n(DOCK_COL_SELL_CR)
-        buy_cr  = _n(DOCK_COL_BUY_CR)
-
-        # Keep row if there is any price information at all
-        if sell_cr == 0 and buy_cr == 0:
-            continue
-
-        result.append([
-            category, name,
-            _n(DOCK_COL_MT),
-            _n(DOCK_COL_BUY_MT),
-            buy_cr,
-            _n(DOCK_COL_SELL_MT),
+        rows.append([
+            category,
+            name,
+            nums[DOCK_COL_MT]      if len(nums) > DOCK_COL_MT      else 0,
+            nums[DOCK_COL_BUY_MT]  if len(nums) > DOCK_COL_BUY_MT  else 0,
+            nums[DOCK_COL_BUY_CR]  if len(nums) > DOCK_COL_BUY_CR  else 0,
+            nums[DOCK_COL_SELL_MT] if len(nums) > DOCK_COL_SELL_MT else 0,
             sell_cr,
         ])
-    return result
+    return rows
 
 
 def _infer_category(raw: str) -> str:
@@ -564,7 +474,7 @@ def _infer_category(raw: str) -> str:
 def parse_text_to_data(text: str) -> dict:
     """
     Main entry point: parse raw OCR text into structured rows.
-    Returns {'header': [...], 'rows': [...], 'totals': dict|None, 'layout': str}
+    Returns {'header': [...], 'rows': [...], 'totals': dict|None}
     """
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     layout = detect_layout(lines)
