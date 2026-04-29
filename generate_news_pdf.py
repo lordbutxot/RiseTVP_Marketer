@@ -198,16 +198,6 @@ def _newspaper_styles():
             textColor=colors.HexColor("#101010"),
             spaceAfter=2,
         ),
-        "quote": ParagraphStyle(
-            "Quote",
-            parent=styles["BodyText"],
-            fontName="Times-Italic",
-            fontSize=8.3,
-            leading=10,
-            alignment=1,
-            textColor=colors.HexColor("#404040"),
-            spaceAfter=1,
-        ),
         "footer": ParagraphStyle(
             "Footer",
             parent=styles["Normal"],
@@ -299,36 +289,6 @@ def _build_opinion_mid(macro_data):
         )
 
     return " ".join(lines) or "The daily board suggests a market with enough breadth to reward planning and enough dispersion to punish lazy routing."
-
-
-def _build_opinion_closing(macro_data, opportunities):
-    best_route = next(iter(sorted(opportunities or [], key=lambda item: item.get("profit_per_mt", 0), reverse=True)), None)
-    top_city = next(iter(macro_data.get("top_cities_by_profit", [])), None)
-
-    if best_route and top_city:
-        variants = [
-            f"Closing desk: when {top_city['city']} leads the board and {best_route['commodity']} still clears {_fmt_cr(best_route.get('profit_per_mt', 0))} per MT, the market is reminding everyone that price discipline beats cargo volume.",
-            f"Closing desk: today's board argues for focus over noise. {top_city['city']} holds the broadest edge, while {best_route['commodity']} keeps proving that the best unit margin usually tells the truth first.",
-            f"Closing desk: capital rarely needs a loud signal. A leading city like {top_city['city']} and a clean {best_route['commodity']} spread are usually enough to define the day."
-        ]
-        selector = (len(top_city["city"]) + len(best_route["commodity"]) + int(best_route.get("profit_per_mt", 0))) % len(variants)
-        return variants[selector]
-    return "Closing desk: the market rarely rewards the loudest route; it rewards the cleanest spread."
-
-
-def _build_quote_of_day(macro_data, opportunities):
-    best_route = next(iter(sorted(opportunities or [], key=lambda item: item.get("profit_per_mt", 0), reverse=True)), None)
-    top_city = next(iter(macro_data.get("top_cities_by_profit", [])), None)
-    if best_route:
-        quotes = [
-            f'"A clean margin per MT is worth more than a crowded hold without pricing power." Today\'s board still proves it in {best_route["commodity"]}.',
-            f'"Markets whisper through spreads before they shout through volume." {best_route["commodity"]} is the whisper to watch today.',
-            f'"The disciplined trader reads the unit price before the cargo hold." {top_city["city"] if top_city else "The province"} is rewarding that habit again.',
-            f'"Distance is only expensive when the spread is weak." Today\'s routes keep making that case.'
-        ]
-        selector = (datetime.datetime.now().timetuple().tm_yday + len(best_route["commodity"])) % len(quotes)
-        return quotes[selector]
-    return '"Trade follows discipline before it follows distance."'
 
 
 def _make_table(title, headers, rows, col_widths, header_fill="#E9E2D0", accent="#8A1538"):
@@ -749,10 +709,6 @@ def generate_news_pdf(
         ]
         story.extend(_section_block(styles, "Commodity Leaderboard", leaderboard_elements))
 
-    closing = _build_opinion_closing(macro_data, opportunities or [])
-    story.extend(_section_block(styles, "Closing Opinion", [Paragraph(closing, styles["body"])]))
-    story.append(Paragraph("Quote of the Day", styles["table_title"]))
-    story.append(Paragraph(_build_quote_of_day(macro_data, opportunities or []), styles["quote"]))
     story.append(_hr([186 * mm], color="#8A1538"))
     story.append(Spacer(1, 2))
     story.append(Paragraph("Editorial desk: refreshed from live provincial trade sheets.", styles["footer"]))
