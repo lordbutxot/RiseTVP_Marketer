@@ -819,41 +819,32 @@ def find_trade_opportunities(catalog, ship_capacity, budget):
             # Filtro estricto: Si no hay precio de venta o es 0, no se puede comprar
             if src_data.get("selling") is None or src_data["selling"] <= 0:
                 continue
-
+                
             for dst, dst_commodities in catalog.items():
                 if src == dst: continue
                 if commodity not in dst_commodities: continue
-
+                
                 dst_data = dst_commodities[commodity]
                 # Filtro estricto: Si no hay precio de compra, no se puede vender
                 if dst_data.get("buying") is None or dst_data["buying"] <= 0:
                     continue
-
+                
                 profit_per_mt = dst_data["buying"] - src_data["selling"]
-                if profit_per_mt <= 0:
-                    continue
-
-                source_available   = src_data.get("sell_capacity", 0) or 0
-                destination_cap    = dst_data.get("buy_capacity", 0) or 0
-                travel             = get_flight_time(src, dst)
-
-                # Estimate trip qty/profit for total_profit field used by MACRO
-                max_by_budget = int(budget / src_data["selling"]) if budget and src_data["selling"] > 0 else float("inf")
-                qty_estimate  = max(min(ship_capacity, source_available, destination_cap, max_by_budget), 0)
-                total_profit  = qty_estimate * profit_per_mt
-
-                opportunities.append({
-                    "commodity":            commodity,
-                    "source":               src,
-                    "destination":          dst,
-                    "profit_per_mt":        profit_per_mt,
-                    "source_selling":       src_data["selling"],
-                    "destination_buying":   dst_data["buying"],
-                    "source_available":     source_available,
-                    "destination_capacity": destination_cap,
-                    "travel_time":          travel,
-                    "total_profit":         total_profit,
-                })
+                
+                if profit_per_mt > 0:
+                    # Aquí calculas el ROI y el beneficio real
+                    qty_to_buy = min(src_data.get("qty", 0), ship_capacity)
+                    total_profit = qty_to_buy * profit_per_mt
+                    
+                    if total_profit > 0:
+                        opportunities.append({
+                            "commodity": commodity,
+                            "source": src,
+                            "destination": dst,
+                            "profit_mt": profit_per_mt,
+                            "total_profit": total_profit,
+                            # ... resto de datos ...
+                        })
     return opportunities
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1245,11 +1236,16 @@ def save_to_excel(data_dict, selected_ship, ship_capacity, output_file,
                 _auto_size_columns(ws)
 
     # ── Opportunities ─────────────────────────────────────────────────────────
-    # Build catalog here so it is available for Trade Routes below.
-    # all_opportunities is already graded and sorted by main(); we just write it.
     catalog = build_trade_catalog(data_dict)
+    opportunities = find_trade_opportunities(catalog, ship_capacity, budget)
 
     if all_opportunities:
+        all_opportunities = assign_grades(
+            all_opportunities, ship_capacity=ship_capacity,
+            budget=budget, is_rental=is_rental, rental_cost_per_day=rental_cost_per_day,
+        )
+        all_opportunities.sort(key=lambda x: x["_profit_trip"], reverse=True)
+
         columns   = _build_opp_columns(is_rental, rental_cost_per_day)
         grade_col = 1
         roi_col   = columns.index("Trip ROI (%)") + 1
@@ -1582,40 +1578,28 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
 # --- CÁLCULO Y FILTRADO ---
     if data_dict["Cities"]["rows"] or ( "EasyDock" in data_dict and data_dict["EasyDock"]["rows"] ):
         catalog = build_trade_catalog(data_dict)
-
-        # Find all raw opportunities across the full catalog
+        
+        # Calculamos todas las rutas posibles primero
         raw_opps = find_trade_opportunities(catalog, ship_capacity, budget)
-
-        # Grade every opportunity (adds _qty_trip, _profit_trip, _roi, grade, …)
-        graded_opps = assign_grades(
-            raw_opps,
-            ship_capacity=ship_capacity,
-            budget=budget,
-            is_rental=is_rental,
-            rental_cost_per_day=ship_rental_cost,
-        )
-
-        # For city mode, filter to routes that originate from the chosen city
+        
+        # Filtramos por ciudad si es el modo 2
         if mode == "city" and origin:
-            opportunities = [o for o in graded_opps if o["source"] == origin]
+            opportunities = [o for o in raw_opps if o['source'] == origin]
         else:
-            opportunities = graded_opps
-
-        # Sort best trips first
-        opportunities.sort(key=lambda x: x.get("_profit_trip", 0), reverse=True)
+            opportunities = raw_opps
 
         print(f"\n{'='*60}")
         print(f"   Opportunities found: {len(opportunities)}")
         print(f"{'='*60}")
 
-        # Save — pass the fully-graded list so Opportunities sheet is populated
+        # Llamada a la función de guardado
         save_to_excel(
             data_dict, selected_ship, ship_capacity,
             output_file=output_file, is_rental=is_rental,
             rental_cost_per_day=ship_rental_cost, origin=origin,
             budget=budget, containers_used=containers_used,
             mode=mode, trade_route_params=trade_route_params,
-            all_opportunities=opportunities,
+            all_opportunities=opportunities  # Ahora la función sí aceptará esto
         )
     else:
         print("\n  No data found to save.")
