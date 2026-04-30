@@ -1,3 +1,17 @@
+"""
+ocr_to_excel.py — Rise TVP Trade Route Optimizer  (v2 — refactored)
+
+Architecture
+────────────
+  Layer 1 – OCR / Parsing     parse_city_image()  → CitySnapshot
+  Layer 2 – Catalog builder   build_trade_catalog() → dict
+  Layer 3 – Optimizer         find_trade_opportunities(), assign_grades()
+  Layer 4 – Excel export      save_to_excel()
+
+Single source of truth for commodities: COMMODITY_CATEGORIES list.
+No legacy Tax / Fee / Distance columns in output.
+"""
+
 import argparse
 import itertools
 import json
@@ -8,170 +22,354 @@ import re
 import time
 from dataclasses import dataclass, field
 from typing import Optional
-import logging
-import sys
+
 import cv2
 import numpy as np
 import openpyxl
+import pytesseract
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from PIL import Image
 from pytesseract import Output
-import pytesseract
 
-# --- TESSERACT CONFIG ---
+# ─────────────────────────────────────────────────────────────────────────────
+# TESSERACT — auto-configure
+# ─────────────────────────────────────────────────────────────────────────────
+
 if platform.system() == "Windows":
-    for _cand in [r"C:\Program Files\Tesseract-OCR\tesseract.exe", r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"]:
+    for _cand in [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]:
         if os.path.isfile(_cand):
             pytesseract.pytesseract.tesseract_cmd = _cand
             break
 
-# --- CONSTANTS ---
-COMMODITY_CATEGORIES = ["Rare/Precious", "Foodstuffs", "Natural Materials", "Fuel Ore", "Consumer Goods", "Fabricated Material", "Refined Fuel"]
-GRADE_STYLES = {
-    "A": {"fill": "00B050", "font": "FFFFFF"},
-    "B": {"fill": "92D050", "font": "000000"},
-    "C": {"fill": "FFC000", "font": "000000"},
-    "D": {"fill": "A6A6A6", "font": "FFFFFF"},
-}
-SHIPS = {
+# ─────────────────────────────────────────────────────────────────────────────
+# CENTRAL CONSTANTS  ← single source of truth
+# ─────────────────────────────────────────────────────────────────────────────
+
+# To add a new commodity, append it here — nowhere else.
+COMMODITY_CATEGORIES: list[str] = [
+    "Rare/Precious",
+    "Foodstuffs",
+    "Natural Materials",
+    "Fuel Ore",
+    "Consumer Goods",
+    "Fabricated Material",
+    "Refined Fuel",
+]
+
+SKIP_IMAGE_PREFIXES: tuple[str, ...] = ("tvi",)
+
+SHIPS: dict = {
     "AIR AND SPACE": {
-        "E-10 Saint": {"cargo_base": 7, "max_containers": 6, "container_mt": 17, "rental_cost_per_day": None},
-        "E-11 Saint": {"cargo_base": 7, "max_containers": 6, "container_mt": 17, "rental_cost_per_day": None},
-        "P-13 Prowler": {"cargo_base": 1, "max_containers": 0, "container_mt": 17, "rental_cost_per_day": None},
-        "W-6 Manx": {"cargo_base": 7, "max_containers": 3, "container_mt": 17, "rental_cost_per_day": None},
+        "E-10 Saint":        {"cargo_base": 7, "max_containers": 6, "container_mt": 17, "rental_cost_per_day": None},
+        "E-11 Saint":        {"cargo_base": 7, "max_containers": 6, "container_mt": 17, "rental_cost_per_day": None},
+        "P-13 Prowler":      {"cargo_base": 1, "max_containers": 0, "container_mt": 17, "rental_cost_per_day": None},
+        "W-6 Manx":          {"cargo_base": 7, "max_containers": 3, "container_mt": 17, "rental_cost_per_day": None},
     },
     "ONLY AIR": {
-        "A-4 Wanderer": {"cargo_base": 1, "max_containers": 1, "container_mt": 17, "rental_cost_per_day": None},
+        "A-4 Wanderer":      {"cargo_base": 1, "max_containers": 1, "container_mt": 17, "rental_cost_per_day": None},
         "T-19 Stratomaster": {"cargo_base": 1, "max_containers": 1, "container_mt": 17, "rental_cost_per_day": None},
     },
 }
-CITIES = {
-    "Alphaville": {"x": 420, "y": 180}, "Comstock": {"x": 380, "y": 210}, "Deadwood": {"x": 340, "y": 230},
-    "Ederar": {"x": 300, "y": 200}, "Erie": {"x": 460, "y": 250}, "Freedom": {"x": 200, "y": 320},
-    "Gettysburg": {"x": 400, "y": 290}, "Kansas": {"x": 250, "y": 300}, "Lancaster": {"x": 350, "y": 350},
-    "Pimli": {"x": 270, "y": 280}, "SovietUnion": {"x": 500, "y": 150}, "Terrazul": {"x": 480, "y": 320},
-    "Sharney 1": {"x": 320, "y": 400}, "Sharney 2": {"x": 360, "y": 450}, "Sharney 3": {"x": 400, "y": 500},
+
+CITIES: dict = {
+    "Alphaville":  {"x": 420, "y": 180},
+    "Comstock":    {"x": 380, "y": 210},
+    "Deadwood":    {"x": 340, "y": 230},
+    "Ederar":      {"x": 300, "y": 200},
+    "Erie":        {"x": 460, "y": 250},
+    "Freedom":     {"x": 200, "y": 320},
+    "Gettysburg":  {"x": 400, "y": 290},
+    "Kansas":      {"x": 250, "y": 300},
+    "Lancaster":   {"x": 350, "y": 350},
+    "Pimli":       {"x": 270, "y": 280},
+    "SovietUnion": {"x": 500, "y": 150},
+    "Terrazul":    {"x": 480, "y": 320},
+    "Sharney 1":   {"x": 320, "y": 400},
+    "Sharney 2":   {"x": 360, "y": 450},
+    "Sharney 3":   {"x": 400, "y": 500},
     "Delois Spot": {"x": 310, "y": 260},
 }
-CITY_LIST = sorted(CITIES.keys())
-TAKEOFF_TIME, LANDING_TIME, SPEED_UNITS_PER_MIN = 5, 10, 5.0
-CITY_ROW_KEYWORDS = {
-    "Rare/Precious": ("rare", "precious"), "Foodstuffs": ("food", "stuff"),
-    "Natural Materials": ("natural", "mater"), "Fuel Ore": ("fuel ore", "ore"),
-    "Consumer Goods": ("consumer", "goods"), "Fabricated Material": ("fabricated", "fabric"),
-    "Refined Fuel": ("refined", "fuel"),
+CITY_LIST: list[str] = sorted(CITIES.keys())
+
+TAKEOFF_TIME  = 5
+LANDING_TIME  = 10
+PLANET_RADIUS = 2898.805   # km
+FLIGHT_SPEED  = 10.0       # km/min
+MIN_TRAVEL_TIME = 5.0
+
+FLIGHT_TIMES_EXPLICIT: dict[tuple[str, str], int] = {
+    ("Delois Spot", "Alphaville"):  60, ("Delois Spot", "Comstock"):    55,
+    ("Delois Spot", "Deadwood"):    60, ("Delois Spot", "Ederar"):      60,
+    ("Delois Spot", "Erie"):        60, ("Delois Spot", "Freedom"):    150,
+    ("Delois Spot", "Gettysburg"):  60, ("Delois Spot", "Kansas"):     150,
+    ("Delois Spot", "Lancaster"):  120, ("Delois Spot", "Pimli"):       35,
+    ("Delois Spot", "Sharney 1"):   60, ("Delois Spot", "Sharney 2"):  120,
+    ("Delois Spot", "Sharney 3"):  180, ("Delois Spot", "SovietUnion"): 60,
+    ("Delois Spot", "Terrazul"):    60,
+    ("Kansas", "Alphaville"):  35, ("Kansas", "Comstock"):    30,
+    ("Kansas", "Deadwood"):    25, ("Kansas", "Ederar"):      20,
+    ("Kansas", "Erie"):        45, ("Kansas", "Freedom"):     15,
+    ("Kansas", "Gettysburg"):  40, ("Kansas", "Lancaster"):   50,
+    ("Kansas", "Pimli"):       10, ("Kansas", "Sharney 1"):   30,
+    ("Kansas", "Sharney 2"):   60, ("Kansas", "Sharney 3"):   90,
+    ("Kansas", "SovietUnion"): 65, ("Kansas", "Terrazul"):    60,
 }
-_SKIP_KEYWORDS = ("totals", "refresh", "cancel", "population", "fees", "ports staffed", "mt free", "cr free")
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s',
-                    handlers=[logging.FileHandler("debug_log.txt", mode='w'), logging.StreamHandler(sys.stdout)])
-logger = logging.getLogger(__name__)
+CITY_COORDINATES: dict[str, Optional[dict]] = {
+    "Alphaville":  {"lat": -4.426,  "lon": -22.115},
+    "Deadwood":    {"lat": -11.077, "lon": -26.543},
+    "Freedom":     {"lat": -12.812, "lon":  15.938},
+    "Gettysburg":  {"lat": -2.616,  "lon": -35.244},
+    "Kansas":      {"lat": -0.988,  "lon":  22.243},
+    "SovietUnion": {"lat": -8.060,  "lon": -23.212},
+    "Delois Spot": {"lat": -4.222,  "lon": -26.066},
+    "Comstock": None, "Ederar": None, "Erie": None,
+    "Lancaster": None, "Pimli": None, "Terrazul": None,
+}
 
-# --- LAYER 1: OCR & DATA STRUCTURES ---
+_ref_speeds = []
+for (_s, _d), _m in FLIGHT_TIMES_EXPLICIT.items():
+    if _s == "Kansas" and _d in CITIES and _m > 0:
+        dx = CITIES["Kansas"]["x"] - CITIES[_d]["x"]
+        dy = CITIES["Kansas"]["y"] - CITIES[_d]["y"]
+        _ref_speeds.append(math.sqrt(dx*dx + dy*dy) / _m)
+SPEED_UNITS_PER_MIN = sum(_ref_speeds) / len(_ref_speeds) if _ref_speeds else 3.0
+
+COMMODITY_COLORS: dict[str, str] = {
+    "Rare/Precious":       "FFD700",
+    "Foodstuffs":          "32CD32",
+    "Natural Materials":   "1E90FF",
+    "Fuel Ore":            "708090",
+    "Consumer Goods":      "DC143C",
+    "Fabricated Material": "8A2BE2",
+    "Refined Fuel":        "FFA500",
+}
+
+GRADE_STYLES: dict[str, dict] = {
+    "A": {"fill": "00B050", "font": "FFFFFF"},
+    "B": {"fill": "70AD47", "font": "FFFFFF"},
+    "C": {"fill": "FFD700", "font": "000000"},
+    "D": {"fill": "FFA500", "font": "FFFFFF"},
+}
+
+# Keywords used to keyword-match each commodity row in OCR output.
+# Derived automatically from COMMODITY_CATEGORIES so there's one place to edit.
+CITY_ROW_KEYWORDS: dict[str, tuple] = {
+    "Rare/Precious":       ("rare", "precious", "preci"),
+    "Foodstuffs":          ("food", "stuff"),
+    "Natural Materials":   ("natural", "mater"),
+    "Fuel Ore":            ("fuel ore", "ore"),
+    "Consumer Goods":      ("consumer", "goods"),
+    "Fabricated Material": ("fabricated", "fabric"),
+    "Refined Fuel":        ("refined", "fuel"),
+}
+assert set(CITY_ROW_KEYWORDS.keys()) == set(COMMODITY_CATEGORIES), \
+    "CITY_ROW_KEYWORDS must cover every entry in COMMODITY_CATEGORIES"
+
+_SKIP_KEYWORDS = (
+    "totals", "refresh", "cancel", "population",
+    "fees", "ports staffed", "mt free", "cr free",
+)
+
+CITY_HEADER_KEYWORDS = (
+    "commodity type", "quantity mt", "reserve mt",
+    "selling cr/mt", "buying cr/mt", "maximum mt",
+)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAYER 1 — DATA STRUCTURES
+# ─────────────────────────────────────────────────────────────────────────────
+
 @dataclass
 class CommodityRow:
-    commodity: str
-    quantity_mt: int = 0
-    reserve_mt: int = 0
-    sell_price: Optional[int] = None
-    buy_price: Optional[int] = None
-    maximum_mt: int = 0
-    # Añadimos estas dos líneas para solucionar el error:
-    sell_locked: bool = False
-    buy_locked: bool = False
-    
+    """One commodity row as read from a city screenshot."""
+    commodity:    str
+    quantity_mt:  int   = 0
+    reserve_mt:   int   = 0
+    sell_price:   Optional[int] = None   # Price market SELLS to us (our buy cost)
+    buy_price:    Optional[int] = None   # Price market BUYS from us (our sell revenue)
+    maximum_mt:   int   = 0
+    sell_locked:  bool  = False          # True if sell_price was displayed in red
+    buy_locked:   bool  = False          # True if buy_price was displayed in red
+
     @property
-    def sell_capacity(self) -> int: 
+    def sell_capacity(self) -> int:
+        """How much we can actually buy from this city."""
         return max(self.quantity_mt - self.reserve_mt, 0)
 
     @property
     def buy_capacity(self) -> int:
-        return max(self.maximum_mt - self.quantity_mt, 0)
+        """How much this city will accept from us."""
+        return self.maximum_mt
+
+
+@dataclass
+class MarketFooter:
+    """The 'Totals' row parsed from the bottom of a city screen."""
+    mt_occupied:  int = 0
+    mt_available: int = 0
+    cr_balance:   int = 0
+
 
 @dataclass
 class CitySnapshot:
-    city_name: str
-    commodities: list[CommodityRow] = field(default_factory=list)
-    footer: Optional[any] = None
+    """Complete parsed data from one city screenshot."""
+    city_name:   str
+    commodities: list[CommodityRow]     = field(default_factory=list)
+    footer:      Optional[MarketFooter] = None
 
-def clean_ocr_number(text: str) -> int:
-    clean_str = re.sub(r'[^\d]', '', text)
-    return int(clean_str) if clean_str else 0
+# ─────────────────────────────────────────────────────────────────────────────
+# LAYER 1 — OCR / PARSING  (image → CitySnapshot)
+# ─────────────────────────────────────────────────────────────────────────────
 
-def _is_red(img_cv, x, y, w, h):
-    roi = img_cv[max(0, y-2):y+h+2, max(0, x-2):x+w+2]
-    if roi.size == 0: return False
+def _is_red(img_cv, x: int, y: int, w: int, h: int, threshold: float = 0.15) -> bool:
+    """Return True if the given bounding box contains predominantly red pixels."""
+    pad = 2
+    roi = img_cv[max(0, y-pad):y+h+pad, max(0, x-pad):x+w+pad]
+    if roi.size == 0:
+        return False
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-    m1 = cv2.inRange(hsv, np.array([0, 70, 70]), np.array([10, 255, 255]))
-    m2 = cv2.inRange(hsv, np.array([160, 70, 70]), np.array([180, 255, 255]))
-    return (np.count_nonzero(cv2.bitwise_or(m1, m2)) / roi.size) > 0.15
+    m1 = cv2.inRange(hsv, np.array([0,   50, 50]), np.array([10,  255, 255]))
+    m2 = cv2.inRange(hsv, np.array([160, 50, 50]), np.array([180, 255, 255]))
+    ratio = np.count_nonzero(cv2.bitwise_or(m1, m2)) / (roi.shape[0] * roi.shape[1])
+    return ratio > threshold
+
+
+def _keyword_match_commodity(text: str) -> Optional[str]:
+    """Return canonical commodity name matching any keyword in text, else None."""
+    low = text.lower()
+    for commodity, keywords in CITY_ROW_KEYWORDS.items():
+        if any(kw in low for kw in keywords):
+            return commodity
+    return None
+
+
+def _parse_footer(text: str) -> Optional[MarketFooter]:
+    """
+    Parse the Totals footer line, e.g.:
+      'Totals  64,330 / 65,535 MT  97,122,100 CR'
+
+    Strategy: find all integers in the line; the first two are MT values,
+    the third is the CR balance.  Returns None if not enough numbers found.
+    """
+    if "total" not in text.lower():
+        return None
+    numbers = [int(n.replace(",", "")) for n in re.findall(r"[\d,]+", text) if n.replace(",", "").isdigit()]
+    if len(numbers) >= 3:
+        return MarketFooter(mt_occupied=numbers[0], mt_available=numbers[1], cr_balance=numbers[2])
+    return None
+
 
 def parse_city_image(img_cv, city_name: str) -> CitySnapshot:
+    """
+    Layer 1 entry point — pure OCR/parsing, no trade logic.
+
+    Uses coordinate-anchored column detection so values land in the right
+    column even when OCR drops a cell.  Red prices are flagged as locked
+    and excluded from trade calculations.
+
+    Column layout (% of image width):
+        Qty     30–45%
+        Reserve 46–58%
+        Sell    59–72%   ← price market sells TO us  (our purchase cost)
+        Buy     73–86%   ← price market pays US       (our sale revenue)
+        Max     87–100%
+    """
     snapshot = CitySnapshot(city_name=city_name)
+
     d = pytesseract.image_to_data(img_cv, output_type=Output.DICT)
     img_width = img_cv.shape[1]
-    
-    # --- COORDENADAS AJUSTADAS SEGÚN TUS LOGS ---
-    # He movido ligeramente las anclas a la derecha (p.ej. sell de 0.47 a 0.50)
-    COL_ANCHORS = {
-        'sell': 0.39,   # Adjusted from 0.38
-        'buy':  0.51,   # Adjusted from 0.50
-        'qty':  0.58,   # Matches SovietUnion logs
-        'max':  0.65    # Adjusted for wider text fields
-    }
-    TOLERANCE = 0.12    # Increased from 0.10 to catch "shifty" columns
-    
-    logger.debug(f"--- [OCR] Ciudad: {city_name} ---")
 
-    lines = {}
+    # --- UPDATE INSIDE parse_city_image ---
+    COL_RANGES = {
+        "qty":     (0.25, 0.45), # Widened
+        "reserve": (0.45, 0.58),
+        "sell":    (0.58, 0.72), 
+        "buy":     (0.72, 0.87), # Shifted slightly right
+        "max":     (0.85, 1.00), # Overlap with 'buy' is okay
+    }
+    # Group words by physical scan-line (bucket top-coord to nearest 10px)
+    lines: dict[int, list[dict]] = {}
     for i, text in enumerate(d["text"]):
         word = text.strip()
-        if not word: continue
-        y_bucket = d["top"][i] // 15 * 15
+        if not word:
+            continue
+        y_bucket = d["top"][i] // 10 * 10
         lines.setdefault(y_bucket, []).append({
-            "text": word, 
-            "x": d["left"][i] / img_width, 
-            "red": _is_red(img_cv, d["left"][i], d["top"][i], d["width"][i], d["height"][i])
+            "text":  word,
+            "x":     d["left"][i] / img_width,
+            "red":   _is_red(img_cv, d["left"][i], d["top"][i], d["width"][i], d["height"][i]),
+            "raw_x": d["left"][i],
+            "raw_y": d["top"][i],
         })
 
+    footer_found = False
     for y in sorted(lines.keys()):
-        line_text = " ".join(w["text"] for w in lines[y]).lower()
-        if any(kw in line_text for kw in _SKIP_KEYWORDS): continue
-            
-        commodity = next((c for c, kws in CITY_ROW_KEYWORDS.items() if any(kw in line_text for kw in kws)), None)
-        if not commodity: continue
-            
-        logger.info(f"[{city_name}] Detectado: {commodity}")
-        
-        vals = {k: 0 for k in COL_ANCHORS}; reds = {k: False for k in COL_ANCHORS}
-        
-        for w in lines[y]:
-            if re.sub(r'[^\d]', '', w["text"]) == "": continue
-                
-            # Hemos quitado los símbolos ✔ y ✗ para evitar el error de Unicode
-            logger.debug(f"  Num '{w['text']}' en x={w['x']:.3f}")
-            
-            for col, anchor in COL_ANCHORS.items():
-                diff = abs(w["x"] - anchor)
-                if diff < TOLERANCE:
-                    num = clean_ocr_number(w["text"])
-                    if num > 0: 
-                        vals[col] = num
-                        reds[col] = w["red"]
-        
-        snapshot.commodities.append(CommodityRow(
-            commodity=commodity, 
-            quantity_mt=vals["qty"],  # Fixed: matches anchor key
-            reserve_mt=0,             # Set to 0 if not currently being scanned
-            sell_price=vals["sell"] if not reds["sell"] else None,
-            buy_price=vals["buy"] if not reds["buy"] else None,
-            maximum_mt=vals["max"],   # Fixed: matches anchor key
-            sell_locked=reds["sell"], 
-            buy_locked=reds["buy"]
-        ))
-        
-    return snapshot
+        line_words = lines[y]
+        line_text  = " ".join(w["text"] for w in line_words)
 
+        # ── Footer / Totals row — parse separately, stop commodity collection ──
+        if "total" in line_text.lower():
+            footer = _parse_footer(line_text)
+            if footer:
+                snapshot.footer = footer
+            footer_found = True
+            continue
+
+        # ── Skip header and chrome lines ──
+        low = line_text.lower()
+        if any(kw in low for kw in _SKIP_KEYWORDS):
+            continue
+        if sum(1 for kw in CITY_HEADER_KEYWORDS if kw in low) >= 2:
+            continue
+
+        # ── Identify commodity by keyword ──
+        commodity = _keyword_match_commodity(line_text)
+        if not commodity:
+            continue
+
+        # ── Place each numeric word into the correct column bucket ──
+        col_vals:  dict[str, Optional[int]] = {k: None for k in COL_RANGES}
+        col_red:   dict[str, bool]          = {k: False for k in COL_RANGES}
+
+        for w in line_words:
+            clean = re.sub(r"[^0-9]", "", w["text"])
+            if not clean: continue
+            val = int(clean)
+            
+            # New logic: Check from right-to-left to ensure Max MT 
+            # doesn't get stolen by the Buy Price bucket
+            if w["x"] >= 0.85:
+                col_vals["max"] = val
+            elif 0.72 <= w["x"] < 0.85:
+                col_vals["buy"] = val
+                col_red["buy"]  = w["red"]
+                break
+
+        def _iv(key: str, default: int = 0) -> int:
+            v = col_vals.get(key)
+            return v if v is not None else default
+
+        # Sell/Buy are None when red (locked) or not detected
+        sell = None if col_red["sell"] else col_vals.get("sell")
+        buy  = None if col_red["buy"]  else col_vals.get("buy")
+
+        row = CommodityRow(
+            commodity   = commodity,
+            quantity_mt = _iv("qty"),
+            reserve_mt  = _iv("reserve"),
+            sell_price  = sell,
+            buy_price   = buy,
+            maximum_mt  = _iv("max"),
+            sell_locked = col_red["sell"],
+            buy_locked  = col_red["buy"],
+        )
+        snapshot.commodities.append(row)
+
+    return snapshot
 
 
 def parse_easydock_image(image_path: str, location_name: str) -> list[dict]:
@@ -260,14 +458,11 @@ def build_trade_catalog(
     for snap in city_snapshots:
         city = catalog.setdefault(snap.city_name, {})
         for row in snap.commodities:
-            # EXTRAER SOLO EL VALOR NUMÉRICO PARA EL OPTIMIZADOR
             city[row.commodity] = {
-                "sell_price": row.sell_price, # El optimizador espera el int directo
-                "buy_price":  row.buy_price,
+                "sell_price": {"value": row.sell_price, "is_locked": row.sell_locked},
+                "buy_price":  {"value": row.buy_price,  "is_locked": row.buy_locked},
                 "sell_capacity": row.sell_capacity,
-                "buy_capacity":  row.maximum_mt,
-                "sell_locked": row.sell_locked, # Guardar por separado
-                "buy_locked": row.buy_locked
+                "buy_capacity":  row.buy_capacity,
             }
 
     # ── EasyDock rows ─────────────────────────────────────────────────────────
@@ -303,73 +498,111 @@ def _pixel_distance(a: str, b: str) -> float:
     return math.sqrt((ca["x"]-cb["x"])**2 + (ca["y"]-cb["y"])**2)
 
 
-# Asegúrate de tener estas constantes definidas arriba
-SPEED_UNITS_PER_MIN = 5.0 # Ajusta según el juego
-
 def get_flight_time(origin: str, destination: str) -> float:
     if origin == destination:
         return 0.0
-    
-    # Intentar obtener por coordenadas de píxeles (que sí tienes en CITIES)
+    explicit = (FLIGHT_TIMES_EXPLICIT.get((origin, destination))
+             or FLIGHT_TIMES_EXPLICIT.get((destination, origin)))
+    if explicit is not None:
+        return TAKEOFF_TIME + explicit + LANDING_TIME
+    c1, c2 = CITY_COORDINATES.get(origin), CITY_COORDINATES.get(destination)
+    if c1 and c2:
+        km = _haversine(c1["lat"], c1["lon"], c2["lat"], c2["lon"])
+        return round(km / FLIGHT_SPEED + MIN_TRAVEL_TIME, 1)
     dist = _pixel_distance(origin, destination)
     if dist > 0:
-        # Fórmula: Tiempo base + (distancia / velocidad) + aterrizaje
         return round(TAKEOFF_TIME + dist / SPEED_UNITS_PER_MIN + LANDING_TIME, 1)
-    
-    # Valor por defecto si no encuentra la ciudad
     return 120.0
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LAYER 3 — OPTIMIZER
 # ─────────────────────────────────────────────────────────────────────────────
 
-def find_trade_opportunities(catalog, ship_capacity, budget=None):
-    opps = []
-    for s_name, s_data in catalog.items():
-        for d_name, d_data in catalog.items():
-            if s_name == d_name: continue
-            for comm, s_info in s_data.items():
-                if comm not in d_data: continue
-                d_info = d_data[comm]
-                
-                sp = s_info["sell_price"]
-                bp = d_info["buy_price"]
-                if sp is None or sp <= 0 or bp is None or bp <= sp: 
-                    continue
-                
-                profit_mt = bp - sp
-                avail = min(s_info["sell_capacity"], d_info["buy_capacity"], ship_capacity)
-                
-                # Ahora la división es segura porque sp > 0
-                if budget: 
-                    avail = min(avail, budget // sp)
-                
-                if avail > 0:
-                    opps.append({
-                        "commodity": comm, "source": s_name, "destination": d_name,
-                        "source_selling": sp, "destination_buying": bp,
-                        "profit_per_mt": profit_mt, "source_available": s_info["sell_capacity"],
-                        "destination_capacity": d_info["buy_capacity"],
-                        "travel_time": round(TAKEOFF_TIME + 50 / SPEED_UNITS_PER_MIN + LANDING_TIME, 1) # Simplified
-                    })
-    return opps
-
-def assign_grades(opportunities, ship_capacity, budget=None, is_rental=False, rental_cost_per_day=None):
-    for op in opportunities:
-        qty = min(ship_capacity, op["source_available"], op["destination_capacity"])
-        if budget: qty = min(qty, budget // op["source_selling"])
-        
-        op["_qty_trip"] = qty
-        op["_cost_trip"] = qty * op["source_selling"]
-        op["_profit_trip"] = qty * op["profit_per_mt"]
-        op["total_profit"] = op["_profit_trip"] 
-        op["_roi"] = (op["_profit_trip"] / op["_cost_trip"] * 100) if op["_cost_trip"] > 0 else 0
-        op["grade"] = "D"
+def find_trade_opportunities(catalog, ship_capacity, budget):
+    opportunities = []
     
-    opportunities.sort(key=lambda x: x["_profit_trip"], reverse=True)
-    for i, op in enumerate([o for o in opportunities if o["_profit_trip"] > 0]):
-        pct = i / len(opportunities)
-        op["grade"] = "A" if pct < 0.2 else "B" if pct < 0.5 else "C"
+    for src_city, src_goods in catalog.items():
+        for dst_city, dst_goods in catalog.items():
+            if src_city == dst_city: continue
+                
+            for commodity, src_info in src_goods.items():
+                if commodity in dst_goods:
+                    dst_info = dst_goods[commodity]
+                    
+                    # New logic to handle the dictionary-based price data
+                    s_price = src_info["sell_price"]["value"]
+                    s_locked = src_info["sell_price"]["is_locked"]
+                    
+                    b_price = dst_info["buy_price"]["value"]
+                    b_locked = dst_info["buy_price"]["is_locked"]
+                    
+                    if s_price and b_price:
+                        profit_per_mt = b_price - s_price
+                        
+                        if profit_per_mt > 0:
+                            # Assign Status Emoji
+                            if s_locked and b_locked:
+                                status = "🔴 FULLY LOCKED"
+                            elif s_locked:
+                                status = "🟠 SOURCE LOCKED"
+                            elif b_locked:
+                                status = "🟡 DEST LOCKED"
+                            else:
+                                status = "🟢 OPEN"
+
+                            opportunities.append({
+                                "commodity": commodity,
+                                "source": src_city,
+                                "destination": dst_city,
+                                "profit_per_mt": profit_per_mt,
+                                "status": status,
+                                "source_selling": s_price,
+                                "destination_buying": b_price,
+                                "source_available": src_info["sell_capacity"],
+                                "destination_capacity": dst_info["buy_capacity"],
+                                "travel_time": get_flight_time(src_city, dst_city)
+                            })
+    
+    return sorted(opportunities, key=lambda x: x["profit_per_mt"], reverse=True)
+
+
+def assign_grades(
+    opportunities:       list[dict],
+    ship_capacity:       int,
+    budget:              Optional[int] = None,
+    is_rental:           bool  = False,
+    rental_cost_per_day: Optional[int] = None,
+) -> list[dict]:
+    """Add grade, trip quantities, cost, profit, and ROI to each opportunity."""
+    for op in opportunities:
+        price         = op["source_selling"] or 1
+        max_by_budget = int(budget / price) if budget else float("inf")
+        qty  = max(min(ship_capacity,
+                       op["source_available"],
+                       op["destination_capacity"],
+                       max_by_budget), 0)
+        cost   = qty * price
+        profit = qty * op["profit_per_mt"]
+        roi    = (profit / cost * 100) if cost > 0 else 0.0
+
+        op["_qty_trip"]    = qty
+        op["_cost_trip"]   = cost
+        op["_profit_trip"] = profit # Keep for backward compatibility
+        op["total_profit"] = profit # ADD THIS LINE to fix the KeyError
+        op["_roi"]         = roi
+        op["_affordable"]  = qty > 0 and profit > 0
+        if is_rental and rental_cost_per_day:
+            op["covers_rental"] = profit >= rental_cost_per_day
+
+    viable = sorted([o for o in opportunities if o["_affordable"]],
+                    key=lambda x: x["_profit_trip"], reverse=True)
+    n = len(viable)
+    for idx, op in enumerate(viable):
+        pct = idx / n if n else 1
+        op["grade"] = "A" if pct < 0.25 else "B" if pct < 0.50 else "C" if pct < 0.75 else "D"
+    for op in opportunities:
+        if "grade" not in op:
+            op["grade"] = "D"
     return opportunities
 
 
@@ -383,31 +616,25 @@ def compute_trade_routes(catalog, origin, allowed_commodities,
         travel_time = get_flight_time(src, dst)
         best = None
         for commodity in allowed_commodities:
-            s_data = catalog.get(src, {}).get(commodity)
-            d_data = catalog.get(dst, {}).get(commodity)
-            if not s_data or not d_data:
+            s = catalog.get(src, {}).get(commodity)
+            d = catalog.get(dst, {}).get(commodity)
+            if not s or not d:
                 continue
-            
-            # EXTRAER VALORES: Maneja tanto diccionarios como números directos
-            sp = s_data["sell_price"]["value"] if isinstance(s_data["sell_price"], dict) else s_data["sell_price"]
-            dp = d_data["buy_price"]["value"] if isinstance(d_data["buy_price"], dict) else d_data["buy_price"]
-            
-            # Validaciones de seguridad
-            sp = sp or 0
-            dp = dp or 0
-            if sp <= 0 or dp <= 0: continue
-            
+            sp = s.get("sell_price") or 0
+            dp = d.get("buy_price")  or 0
+            if sp <= 0 or dp <= 0:
+                continue
             ppm = dp - sp
-            if ppm <= 0: continue
-            
-            avail = s_data.get("sell_capacity", 0)
-            cap   = d_data.get("buy_capacity",  0)
-            if avail <= 0 or cap <= 0: continue
-            
+            if ppm <= 0:
+                continue
+            avail = s.get("sell_capacity", 0)
+            cap   = d.get("buy_capacity",  0)
+            if avail <= 0 or cap <= 0:
+                continue
             max_by_budget = int(budget / sp) if budget and sp > 0 else float("inf")
             qty    = max(min(ship_capacity, avail, cap, max_by_budget), 0)
-            if qty <= 0: continue
-            
+            if qty <= 0:
+                continue
             cost   = qty * sp
             profit = qty * ppm
             if best is None or profit > best["profit"]:
@@ -416,7 +643,6 @@ def compute_trade_routes(catalog, origin, allowed_commodities,
                             qty=qty, cost=cost, profit=profit,
                             roi=(profit/cost*100) if cost else 0,
                             flight_min=travel_time)
-                            
         return best or dict(commodity="— empty —", src=src, dst=dst,
                             buy_price=0, sell_price=0, profit_per_mt=0,
                             qty=0, cost=0, profit=0, roi=0, flight_min=travel_time)
@@ -488,12 +714,12 @@ def calculate_macro_data(catalog: dict, opportunities: list) -> dict:
             item = data[commodity]
             
             # EXTRACT THE VALUE from the price dictionary
-            sp = item.get("sell_price")
-            bp = item.get("buy_price")
-
-            # Si sp o bp vienen como diccionarios (de la lógica de snapshots), extraer el valor
-            if isinstance(sp, dict): sp = sp.get("value")
-            if isinstance(bp, dict): bp = bp.get("value")
+            sp_data = item.get("sell_price", {})
+            bp_data = item.get("buy_price", {})
+            
+            # Handle both formats (dict from screenshots or int from EasyDock)
+            sp = sp_data.get("value") if isinstance(sp_data, dict) else sp_data
+            bp = bp_data.get("value") if isinstance(bp_data, dict) else bp_data
             
             if sp and sp > 0 and item.get("sell_capacity", 0) > 0:
                 sellers.append({"city": city, "price": sp, "capacity": item["sell_capacity"]})
@@ -849,9 +1075,7 @@ def _write_macro_sheet(wb, macro_data: dict):
     ws.append([])
     _section("BEST SELLERS AND BUYERS BY COMMODITY")
     for commodity in COMMODITY_CATEGORIES:   # ← driven by single constant
-        # Obtiene el color hexadecimal del registro dinámico
-        color_fill = get_commodity_fill(commodity)
-        color = color_fill.start_color.rgb if color_fill.start_color else "E6E6FA"
+        color = COMMODITY_COLORS.get(commodity, "E6E6FA")
         ws.append([])
         ws.append([f"--- {commodity.upper()} ---"])
         _style_commodity_separator(ws[ws.max_row], color)
@@ -1154,64 +1378,48 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
             "max_hops":            _prompt_max_hops(),
         }
 
-# ── Process images ────────────────────────────────────────────────────────
+    # ── Process images ────────────────────────────────────────────────────────
     load_color_maps()
 
     if not os.path.exists(image_folder):
         print(f"\n✗  Folder '{image_folder}' not found.")
         return
 
-    easydock_rows = [] # <--- Añade esta línea
-    city_snapshots_dict: dict[str, CitySnapshot] = {}    
-    
-    print(f"\n  Scanning folder: {image_folder}...")
+    city_snapshots: list[CitySnapshot] = []
+    easydock_rows:  list[dict]          = []
 
     for filename in sorted(os.listdir(image_folder)):
         if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):
             continue
 
+        base_name  = filename.rsplit("_", 1)[0]
         image_path = os.path.join(image_folder, filename)
+
+        # Skip non-city assets (e.g. TVI newspaper images)
+        if base_name.lower().startswith(SKIP_IMAGE_PREFIXES):
+            print(f"  — Skipped: {filename}")
+            continue
+
         img_cv = cv2.imread(image_path)
-        
         if img_cv is None:
+            print(f"  ✗ Could not open image: {filename}")
             continue
 
-        # Lógica de detección de ciudad mejorada
-        target_city = None
-        base_name = filename.upper()
-
-        for city in CITY_LIST:
-            if city.upper() in base_name:
-                target_city = city
-                break
-        
-        if not target_city:
-            continue
-
-        # Procesar la imagen
-        snap = parse_city_image(img_cv, target_city)
-        
-        if snap.commodities:
-            if target_city in city_snapshots_dict:
-                # Merge commodities if city already exists (updates existing entries)
-                existing_snap = city_snapshots_dict[target_city]
-                existing_commodities = {c.commodity: c for c in existing_snap.commodities}
-                for new_comm in snap.commodities:
-                    existing_commodities[new_comm.commodity] = new_comm # Overwrite with newest
-                existing_snap.commodities = list(existing_commodities.values())
-            else:
-                city_snapshots_dict[target_city] = snap
-        
-        footer_info = ""
-        if snap.footer:
-            f = snap.footer
-            mt_free = f.mt_available - f.mt_occupied
-            footer_info = (f" | MT: {f.mt_occupied:,}/{f.mt_available:,}"
-                           f" (free: {mt_free:,}) | CR: {f.cr_balance:,}")
-        
-        print(f"  ✔ {filename} → {target_city}  ({len(snap.commodities)} commodities{footer_info})")
-
-    city_snapshots = list(city_snapshots_dict.values())
+        if base_name.lower() == "easydock":
+            rows = parse_easydock_image(image_path, base_name)
+            easydock_rows.extend(rows)
+            print(f"  ✔ {filename} → EasyDock  ({len(rows)} rows)")
+        else:
+            # ── Layer 1: pure OCR → CitySnapshot ──────────────────────────────
+            snap = parse_city_image(img_cv, base_name)
+            city_snapshots.append(snap)
+            footer_info = ""
+            if snap.footer:
+                f = snap.footer
+                mt_free     = f.mt_available - f.mt_occupied
+                footer_info = (f" | MT: {f.mt_occupied:,}/{f.mt_available:,}"
+                               f" (free: {mt_free:,}) | CR: {f.cr_balance:,}")
+            print(f"  ✔ {filename} → Cities  ({len(snap.commodities)} commodities{footer_info})")
 
     if not city_snapshots and not easydock_rows:
         print("\n  No data found to save.")
@@ -1222,13 +1430,8 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
 
     # ── Layer 3: global opportunities + grading ───────────────────────────────
     raw_opps    = find_trade_opportunities(catalog, ship_capacity, budget)
-    graded_opps = assign_grades(
-        raw_opps, 
-        ship_capacity=ship_capacity, 
-        budget=budget,
-        is_rental=is_rental, 
-        rental_cost_per_day=ship_rental_cost # Aquí es donde fallaba antes
-    )
+    graded_opps = assign_grades(raw_opps, ship_capacity=ship_capacity, budget=budget,
+                                is_rental=is_rental, rental_cost_per_day=ship_rental_cost)
     graded_opps.sort(key=lambda x: x.get("_profit_trip", 0), reverse=True)
 
     print(f"\n{'='*60}")
@@ -1258,7 +1461,6 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
 
 
 if __name__ == "__main__":
-    # 1. Configuramos el parser fuera del try para que los errores de argumentos (--help, etc) funcionen normal
     parser = argparse.ArgumentParser(description="Rise TVP Trade Route Optimizer")
     parser.add_argument("--images",     default="images",           help="Image folder path")
     parser.add_argument("--ship",       default=None,               help="Ship name")
@@ -1268,29 +1470,7 @@ if __name__ == "__main__":
     parser.add_argument("--origin",     default=None,               help="Origin city")
     parser.add_argument("--mode",       default="regular",
                         choices=["regular", "city", "route"],       help="Analysis mode")
-    
     args = parser.parse_args()
-
-    # 2. Envolvemos la ejecución principal en el bloque de seguridad
-    try:
-        logger.info("--- Iniciando optimizador Rise TVP ---")
-        
-        main(
-            args.images, 
-            selected_ship=args.ship, 
-            output_file=args.output,
-            budget=args.budget, 
-            containers_used=args.containers,
-            origin=args.origin, 
-            mode=args.mode
-        )
-        
-        logger.info("--- Proceso finalizado con éxito ---")
-
-    except Exception as e:
-        # Esto escribirá el error exacto en debug_log.txt y en la consola
-        logger.error(f"FALLO CRÍTICO EN EL SCRIPT: {str(e)}", exc_info=True)
-        print("\n" + "="*50)
-        print(" SE HA DETECTADO UN ERROR. REVISA 'debug_log.txt'")
-        print("="*50)
-        input("\nPresiona Enter para cerrar...")
+    main(args.images, selected_ship=args.ship, output_file=args.output,
+         budget=args.budget, containers_used=args.containers,
+         origin=args.origin, mode=args.mode)

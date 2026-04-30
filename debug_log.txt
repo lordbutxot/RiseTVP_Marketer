@@ -1,0 +1,585 @@
+2026-04-30 18:05:05,427 [INFO] --- Iniciando optimizador Rise TVP ---
+2026-04-30 18:05:09,820 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_38z3x4ry_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_38z3x4ry', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:10,337 [DEBUG] --- [OCR] Ciudad: Alphaville ---
+2026-04-30 18:05:10,341 [INFO] [Alphaville] Detectado: Rare/Precious
+2026-04-30 18:05:10,341 [INFO] [Alphaville] Detectado: Foodstuffs
+2026-04-30 18:05:10,341 [INFO] [Alphaville] Detectado: Natural Materials
+2026-04-30 18:05:10,342 [INFO] [Alphaville] Detectado: Fuel Ore
+2026-04-30 18:05:10,342 [INFO] [Alphaville] Detectado: Consumer Goods
+2026-04-30 18:05:10,343 [INFO] [Alphaville] Detectado: Natural Materials
+2026-04-30 18:05:10,343 [INFO] [Alphaville] Detectado: Refined Fuel
+2026-04-30 18:05:10,410 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_pnh1vwgi_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_pnh1vwgi', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:10,970 [DEBUG] --- [OCR] Ciudad: Comstock ---
+2026-04-30 18:05:10,974 [INFO] [Comstock] Detectado: Rare/Precious
+2026-04-30 18:05:10,975 [INFO] [Comstock] Detectado: Foodstuffs
+2026-04-30 18:05:10,975 [DEBUG]   Num '[x0' en x=0.362
+2026-04-30 18:05:10,976 [DEBUG]   Num '[1200]' en x=0.463
+2026-04-30 18:05:10,976 [DEBUG]   Num '{20000' en x=0.665
+2026-04-30 18:05:10,977 [INFO] [Comstock] Detectado: Natural Materials
+2026-04-30 18:05:10,977 [DEBUG]   Num '18,042' en x=0.262
+2026-04-30 18:05:10,978 [INFO] [Comstock] Detectado: Fuel Ore
+2026-04-30 18:05:10,978 [DEBUG]   Num '17' en x=0.262
+2026-04-30 18:05:10,978 [INFO] [Comstock] Detectado: Consumer Goods
+2026-04-30 18:05:10,979 [DEBUG]   Num '603' en x=0.261
+2026-04-30 18:05:10,979 [INFO] [Comstock] Detectado: Natural Materials
+2026-04-30 18:05:10,980 [DEBUG]   Num '15,602' en x=0.262
+2026-04-30 18:05:10,980 [INFO] [Comstock] Detectado: Refined Fuel
+2026-04-30 18:05:10,981 [DEBUG]   Num '156' en x=0.262
+2026-04-30 18:05:11,029 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_yayoentz_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_yayoentz', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:11,572 [DEBUG] --- [OCR] Ciudad: Deadwood ---
+2026-04-30 18:05:11,575 [INFO] [Deadwood] Detectado: Rare/Precious
+2026-04-30 18:05:11,575 [DEBUG]   Num '83' en x=0.261
+2026-04-30 18:05:11,576 [DEBUG]   Num '0' en x=0.376
+2026-04-30 18:05:11,576 [DEBUG]   Num '12000' en x=0.478
+2026-04-30 18:05:11,577 [DEBUG]   Num '6000' en x=0.578
+2026-04-30 18:05:11,577 [DEBUG]   Num '60000' en x=0.679
+2026-04-30 18:05:11,578 [INFO] [Deadwood] Detectado: Foodstuffs
+2026-04-30 18:05:11,578 [INFO] [Deadwood] Detectado: Natural Materials
+2026-04-30 18:05:11,579 [INFO] [Deadwood] Detectado: Natural Materials
+2026-04-30 18:05:11,579 [DEBUG]   Num '21,497' en x=0.261
+2026-04-30 18:05:11,580 [DEBUG]   Num '0' en x=0.376
+2026-04-30 18:05:11,580 [DEBUG]   Num '620' en x=0.477
+2026-04-30 18:05:11,581 [DEBUG]   Num '310' en x=0.578
+2026-04-30 18:05:11,581 [DEBUG]   Num '66000' en x=0.679
+2026-04-30 18:05:11,582 [INFO] [Deadwood] Detectado: Fuel Ore
+2026-04-30 18:05:11,582 [DEBUG]   Num '81,721' en x=0.261
+2026-04-30 18:05:11,583 [DEBUG]   Num '4' en x=0.375
+2026-04-30 18:05:11,585 [DEBUG]   Num '100' en x=0.478
+2026-04-30 18:05:11,585 [DEBUG]   Num '50' en x=0.578
+2026-04-30 18:05:11,586 [DEBUG]   Num '100000' en x=0.680
+2026-04-30 18:05:11,586 [INFO] [Deadwood] Detectado: Consumer Goods
+2026-04-30 18:05:11,587 [DEBUG]   Num '3,827' en x=0.261
+2026-04-30 18:05:11,587 [DEBUG]   Num '4' en x=0.375
+2026-04-30 18:05:11,587 [DEBUG]   Num '10000' en x=0.478
+2026-04-30 18:05:11,588 [DEBUG]   Num '5000' en x=0.578
+2026-04-30 18:05:11,589 [DEBUG]   Num '20000' en x=0.679
+2026-04-30 18:05:11,589 [INFO] [Deadwood] Detectado: Natural Materials
+2026-04-30 18:05:11,590 [INFO] [Deadwood] Detectado: Refined Fuel
+2026-04-30 18:05:11,655 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_2posk6wc_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_2posk6wc', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:12,127 [DEBUG] --- [OCR] Ciudad: Ederar ---
+2026-04-30 18:05:12,130 [INFO] [Ederar] Detectado: Foodstuffs
+2026-04-30 18:05:12,130 [DEBUG]   Num '12,210' en x=0.262
+2026-04-30 18:05:12,130 [DEBUG]   Num '616' en x=0.376
+2026-04-30 18:05:12,131 [INFO] [Ederar] Detectado: Natural Materials
+2026-04-30 18:05:12,131 [DEBUG]   Num '30,000' en x=0.261
+2026-04-30 18:05:12,132 [DEBUG]   Num '0' en x=0.376
+2026-04-30 18:05:12,132 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:12,133 [INFO] [Ederar] Detectado: Consumer Goods
+2026-04-30 18:05:12,133 [DEBUG]   Num '88' en x=0.376
+2026-04-30 18:05:12,134 [DEBUG]   Num '100' en x=0.680
+2026-04-30 18:05:12,135 [INFO] [Ederar] Detectado: Natural Materials
+2026-04-30 18:05:12,135 [INFO] [Ederar] Detectado: Fabricated Material
+2026-04-30 18:05:12,135 [DEBUG]   Num '0' en x=0.376
+2026-04-30 18:05:12,136 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:12,136 [INFO] [Ederar] Detectado: Refined Fuel
+2026-04-30 18:05:12,178 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_pidmlk34_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_pidmlk34', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:12,662 [DEBUG] --- [OCR] Ciudad: Erie ---
+2026-04-30 18:05:12,664 [INFO] [Erie] Detectado: Rare/Precious
+2026-04-30 18:05:12,665 [INFO] [Erie] Detectado: Foodstuffs
+2026-04-30 18:05:12,665 [INFO] [Erie] Detectado: Natural Materials
+2026-04-30 18:05:12,666 [INFO] [Erie] Detectado: Fuel Ore
+2026-04-30 18:05:12,666 [INFO] [Erie] Detectado: Consumer Goods
+2026-04-30 18:05:12,666 [INFO] [Erie] Detectado: Natural Materials
+2026-04-30 18:05:12,667 [INFO] [Erie] Detectado: Refined Fuel
+2026-04-30 18:05:12,708 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_1ozes3yu_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_1ozes3yu', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:13,313 [DEBUG] --- [OCR] Ciudad: Freedom ---
+2026-04-30 18:05:13,316 [INFO] [Freedom] Detectado: Rare/Precious
+2026-04-30 18:05:13,317 [DEBUG]   Num '9,084' en x=0.261
+2026-04-30 18:05:13,317 [INFO] [Freedom] Detectado: Foodstuffs
+2026-04-30 18:05:13,318 [DEBUG]   Num '[1200]' en x=0.463
+2026-04-30 18:05:13,318 [DEBUG]   Num '{2000}' en x=0.665
+2026-04-30 18:05:13,319 [INFO] [Freedom] Detectado: Natural Materials
+2026-04-30 18:05:13,319 [DEBUG]   Num '7,750' en x=0.261
+2026-04-30 18:05:13,320 [INFO] [Freedom] Detectado: Consumer Goods
+2026-04-30 18:05:13,320 [DEBUG]   Num '1,107' en x=0.262
+2026-04-30 18:05:13,321 [INFO] [Freedom] Detectado: Natural Materials
+2026-04-30 18:05:13,321 [DEBUG]   Num '2,714' en x=0.261
+2026-04-30 18:05:13,322 [INFO] [Freedom] Detectado: Refined Fuel
+2026-04-30 18:05:13,322 [DEBUG]   Num '102' en x=0.262
+2026-04-30 18:05:13,364 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_04zm3nnm_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_04zm3nnm', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:13,924 [DEBUG] --- [OCR] Ciudad: Gettysburg ---
+2026-04-30 18:05:13,929 [INFO] [Gettysburg] Detectado: Fuel Ore
+2026-04-30 18:05:13,985 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_w_zu4z3h_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_w_zu4z3h', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:14,655 [DEBUG] --- [OCR] Ciudad: Kansas ---
+2026-04-30 18:05:14,663 [INFO] [Kansas] Detectado: Rare/Precious
+2026-04-30 18:05:14,664 [INFO] [Kansas] Detectado: Foodstuffs
+2026-04-30 18:05:14,665 [INFO] [Kansas] Detectado: Natural Materials
+2026-04-30 18:05:14,666 [INFO] [Kansas] Detectado: Fuel Ore
+2026-04-30 18:05:14,667 [INFO] [Kansas] Detectado: Consumer Goods
+2026-04-30 18:05:14,668 [INFO] [Kansas] Detectado: Natural Materials
+2026-04-30 18:05:14,669 [INFO] [Kansas] Detectado: Refined Fuel
+2026-04-30 18:05:14,746 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_lpomd5e7_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_lpomd5e7', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:15,483 [DEBUG] --- [OCR] Ciudad: Lancaster ---
+2026-04-30 18:05:15,575 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_urysk39h_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_urysk39h', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:16,232 [DEBUG] --- [OCR] Ciudad: Pimli ---
+2026-04-30 18:05:16,319 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_014dgg1v_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_014dgg1v', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:16,987 [DEBUG] --- [OCR] Ciudad: SovietUnion ---
+2026-04-30 18:05:16,992 [INFO] [SovietUnion] Detectado: Rare/Precious
+2026-04-30 18:05:16,993 [DEBUG]   Num '109' en x=0.262
+2026-04-30 18:05:16,994 [DEBUG]   Num '5000' en x=0.376
+2026-04-30 18:05:16,994 [DEBUG]   Num '7956' en x=0.578
+2026-04-30 18:05:16,995 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:16,995 [INFO] [SovietUnion] Detectado: Foodstuffs
+2026-04-30 18:05:16,996 [INFO] [SovietUnion] Detectado: Natural Materials
+2026-04-30 18:05:16,996 [DEBUG]   Num '20' en x=0.261
+2026-04-30 18:05:16,997 [DEBUG]   Num '0' en x=0.376
+2026-04-30 18:05:16,997 [DEBUG]   Num '39' en x=0.477
+2026-04-30 18:05:16,998 [DEBUG]   Num '32' en x=0.578
+2026-04-30 18:05:16,998 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:16,999 [INFO] [SovietUnion] Detectado: Fuel Ore
+2026-04-30 18:05:17,000 [DEBUG]   Num '0' en x=0.261
+2026-04-30 18:05:17,000 [DEBUG]   Num '50' en x=0.376
+2026-04-30 18:05:17,001 [DEBUG]   Num '69' en x=0.578
+2026-04-30 18:05:17,003 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:17,003 [INFO] [SovietUnion] Detectado: Consumer Goods
+2026-04-30 18:05:17,004 [DEBUG]   Num '2,111' en x=0.261
+2026-04-30 18:05:17,004 [DEBUG]   Num '500' en x=0.376
+2026-04-30 18:05:17,005 [DEBUG]   Num '8711' en x=0.477
+2026-04-30 18:05:17,006 [DEBUG]   Num '7259' en x=0.578
+2026-04-30 18:05:17,006 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:17,007 [INFO] [SovietUnion] Detectado: Natural Materials
+2026-04-30 18:05:17,008 [INFO] [SovietUnion] Detectado: Fabricated Material
+2026-04-30 18:05:17,008 [DEBUG]   Num '29,950' en x=0.261
+2026-04-30 18:05:17,009 [DEBUG]   Num '1500' en x=0.377
+2026-04-30 18:05:17,009 [DEBUG]   Num '187' en x=0.478
+2026-04-30 18:05:17,010 [DEBUG]   Num '156' en x=0.579
+2026-04-30 18:05:17,010 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:17,011 [INFO] [SovietUnion] Detectado: Refined Fuel
+2026-04-30 18:05:17,011 [DEBUG]   Num '1,499' en x=0.262
+2026-04-30 18:05:17,012 [DEBUG]   Num '7' en x=0.377
+2026-04-30 18:05:17,012 [DEBUG]   Num '339' en x=0.477
+2026-04-30 18:05:17,013 [DEBUG]   Num '283' en x=0.578
+2026-04-30 18:05:17,014 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:17,052 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_ctt3rzno_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_ctt3rzno', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:17,686 [DEBUG] --- [OCR] Ciudad: Terrazul ---
+2026-04-30 18:05:17,689 [INFO] [Terrazul] Detectado: Rare/Precious
+2026-04-30 18:05:17,690 [DEBUG]   Num '0' en x=0.376
+2026-04-30 18:05:17,690 [DEBUG]   Num '9204' en x=0.578
+2026-04-30 18:05:17,691 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:17,692 [INFO] [Terrazul] Detectado: Foodstuffs
+2026-04-30 18:05:17,692 [DEBUG]   Num '[7' en x=0.466
+2026-04-30 18:05:17,693 [INFO] [Terrazul] Detectado: Natural Materials
+2026-04-30 18:05:17,693 [DEBUG]   Num '67.' en x=0.261
+2026-04-30 18:05:17,694 [DEBUG]   Num '550' en x=0.376
+2026-04-30 18:05:17,694 [DEBUG]   Num '32' en x=0.578
+2026-04-30 18:05:17,695 [DEBUG]   Num '720' en x=0.679
+2026-04-30 18:05:17,695 [INFO] [Terrazul] Detectado: Fuel Ore
+2026-04-30 18:05:17,696 [DEBUG]   Num '425' en x=0.260
+2026-04-30 18:05:17,696 [DEBUG]   Num '100' en x=0.377
+2026-04-30 18:05:17,697 [DEBUG]   Num '72' en x=0.477
+2026-04-30 18:05:17,697 [DEBUG]   Num '60' en x=0.578
+2026-04-30 18:05:17,698 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:17,698 [INFO] [Terrazul] Detectado: Fabricated Material
+2026-04-30 18:05:17,699 [INFO] [Terrazul] Detectado: Natural Materials
+2026-04-30 18:05:17,699 [DEBUG]   Num '276' en x=0.261
+2026-04-30 18:05:17,700 [DEBUG]   Num '550' en x=0.376
+2026-04-30 18:05:17,700 [DEBUG]   Num '320' en x=0.578
+2026-04-30 18:05:17,701 [DEBUG]   Num '720' en x=0.679
+2026-04-30 18:05:17,701 [INFO] [Terrazul] Detectado: Refined Fuel
+2026-04-30 18:05:17,702 [DEBUG]   Num '93' en x=0.261
+2026-04-30 18:05:17,702 [DEBUG]   Num '70' en x=0.376
+2026-04-30 18:05:17,704 [DEBUG]   Num '257' en x=0.477
+2026-04-30 18:05:17,705 [DEBUG]   Num '214' en x=0.578
+2026-04-30 18:05:17,705 [DEBUG]   Num '30000' en x=0.679
+2026-04-30 18:05:17,839 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_5vh_6rh__input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_5vh_6rh_', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:18,568 [DEBUG] --- [OCR] Ciudad: Alphaville ---
+2026-04-30 18:05:18,571 [INFO] [Alphaville] Detectado: Rare/Precious
+2026-04-30 18:05:18,572 [DEBUG]   Num '6,388' en x=0.392
+2026-04-30 18:05:18,573 [DEBUG]   Num '10' en x=0.459
+2026-04-30 18:05:18,573 [DEBUG]   Num '6000' en x=0.516
+2026-04-30 18:05:18,574 [DEBUG]   Num '3000' en x=0.574
+2026-04-30 18:05:18,574 [DEBUG]   Num '15000' en x=0.632
+2026-04-30 18:05:18,575 [INFO] [Alphaville] Detectado: Foodstuffs
+2026-04-30 18:05:18,575 [DEBUG]   Num '[20' en x=0.508
+2026-04-30 18:05:18,576 [INFO] [Alphaville] Detectado: Natural Materials
+2026-04-30 18:05:18,576 [DEBUG]   Num '99,599' en x=0.392
+2026-04-30 18:05:18,577 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:18,578 [DEBUG]   Num '8' en x=0.516
+2026-04-30 18:05:18,578 [DEBUG]   Num '4' en x=0.573
+2026-04-30 18:05:18,579 [DEBUG]   Num '250000' en x=0.632
+2026-04-30 18:05:18,579 [INFO] [Alphaville] Detectado: Fuel Ore
+2026-04-30 18:05:18,580 [DEBUG]   Num '63,214' en x=0.392
+2026-04-30 18:05:18,580 [DEBUG]   Num '4' en x=0.458
+2026-04-30 18:05:18,580 [DEBUG]   Num '100' en x=0.517
+2026-04-30 18:05:18,581 [DEBUG]   Num '50' en x=0.574
+2026-04-30 18:05:18,581 [DEBUG]   Num '500000' en x=0.632
+2026-04-30 18:05:18,582 [INFO] [Alphaville] Detectado: Consumer Goods
+2026-04-30 18:05:18,582 [DEBUG]   Num '6,034' en x=0.392
+2026-04-30 18:05:18,583 [DEBUG]   Num '750' en x=0.458
+2026-04-30 18:05:18,583 [DEBUG]   Num '2000' en x=0.516
+2026-04-30 18:05:18,584 [DEBUG]   Num '1000' en x=0.574
+2026-04-30 18:05:18,584 [DEBUG]   Num '10000' en x=0.632
+2026-04-30 18:05:18,585 [INFO] [Alphaville] Detectado: Natural Materials
+2026-04-30 18:05:18,585 [DEBUG]   Num '41,302' en x=0.392
+2026-04-30 18:05:18,586 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:18,586 [DEBUG]   Num '80' en x=0.516
+2026-04-30 18:05:18,587 [DEBUG]   Num '40' en x=0.573
+2026-04-30 18:05:18,587 [DEBUG]   Num '100000' en x=0.632
+2026-04-30 18:05:18,761 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_2oeh989c_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_2oeh989c', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:19,642 [DEBUG] --- [OCR] Ciudad: Comstock ---
+2026-04-30 18:05:19,646 [INFO] [Comstock] Detectado: Rare/Precious
+2026-04-30 18:05:19,646 [DEBUG]   Num '116,197' en x=0.393
+2026-04-30 18:05:19,647 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:19,648 [DEBUG]   Num '6600' en x=0.516
+2026-04-30 18:05:19,649 [DEBUG]   Num '3300' en x=0.574
+2026-04-30 18:05:19,649 [DEBUG]   Num '600000' en x=0.632
+2026-04-30 18:05:19,649 [INFO] [Comstock] Detectado: Foodstuffs
+2026-04-30 18:05:19,650 [DEBUG]   Num '393' en x=0.392
+2026-04-30 18:05:19,650 [DEBUG]   Num '300' en x=0.458
+2026-04-30 18:05:19,651 [DEBUG]   Num '1200' en x=0.517
+2026-04-30 18:05:19,651 [DEBUG]   Num '600' en x=0.574
+2026-04-30 18:05:19,652 [DEBUG]   Num '20000' en x=0.632
+2026-04-30 18:05:19,652 [INFO] [Comstock] Detectado: Natural Materials
+2026-04-30 18:05:19,653 [DEBUG]   Num '18,042' en x=0.393
+2026-04-30 18:05:19,653 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:19,654 [DEBUG]   Num '40' en x=0.516
+2026-04-30 18:05:19,654 [DEBUG]   Num '20' en x=0.574
+2026-04-30 18:05:19,654 [DEBUG]   Num '300000' en x=0.632
+2026-04-30 18:05:19,655 [INFO] [Comstock] Detectado: Fuel Ore
+2026-04-30 18:05:19,656 [DEBUG]   Num '17' en x=0.393
+2026-04-30 18:05:19,656 [DEBUG]   Num '4' en x=0.458
+2026-04-30 18:05:19,657 [DEBUG]   Num '150,' en x=0.517
+2026-04-30 18:05:19,657 [DEBUG]   Num '75' en x=0.574
+2026-04-30 18:05:19,658 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:19,658 [INFO] [Comstock] Detectado: Consumer Goods
+2026-04-30 18:05:19,659 [DEBUG]   Num '603' en x=0.392
+2026-04-30 18:05:19,659 [DEBUG]   Num '6' en x=0.458
+2026-04-30 18:05:19,660 [DEBUG]   Num '11000' en x=0.517
+2026-04-30 18:05:19,660 [DEBUG]   Num '5500' en x=0.574
+2026-04-30 18:05:19,661 [DEBUG]   Num '5000,' en x=0.632
+2026-04-30 18:05:19,661 [INFO] [Comstock] Detectado: Natural Materials
+2026-04-30 18:05:19,662 [DEBUG]   Num '15,602' en x=0.393
+2026-04-30 18:05:19,662 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:19,662 [DEBUG]   Num '250' en x=0.516
+2026-04-30 18:05:19,665 [DEBUG]   Num '125' en x=0.574
+2026-04-30 18:05:19,666 [DEBUG]   Num '300000' en x=0.632
+2026-04-30 18:05:19,666 [INFO] [Comstock] Detectado: Refined Fuel
+2026-04-30 18:05:19,667 [DEBUG]   Num '156' en x=0.393
+2026-04-30 18:05:19,667 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:19,668 [DEBUG]   Num '260' en x=0.516
+2026-04-30 18:05:19,668 [DEBUG]   Num '130' en x=0.574
+2026-04-30 18:05:19,668 [DEBUG]   Num '50000' en x=0.632
+2026-04-30 18:05:19,766 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_uhjv10iz_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_uhjv10iz', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:20,536 [DEBUG] --- [OCR] Ciudad: Deadwood ---
+2026-04-30 18:05:20,540 [INFO] [Deadwood] Detectado: Rare/Precious
+2026-04-30 18:05:20,540 [DEBUG]   Num '83' en x=0.392
+2026-04-30 18:05:20,540 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:20,541 [DEBUG]   Num '12000' en x=0.517
+2026-04-30 18:05:20,542 [DEBUG]   Num '6000' en x=0.574
+2026-04-30 18:05:20,542 [DEBUG]   Num '60000' en x=0.632
+2026-04-30 18:05:20,543 [INFO] [Deadwood] Detectado: Foodstuffs
+2026-04-30 18:05:20,543 [INFO] [Deadwood] Detectado: Natural Materials
+2026-04-30 18:05:20,544 [DEBUG]   Num '24,497' en x=0.392
+2026-04-30 18:05:20,544 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:20,545 [DEBUG]   Num '620' en x=0.516
+2026-04-30 18:05:20,545 [DEBUG]   Num '310' en x=0.574
+2026-04-30 18:05:20,545 [DEBUG]   Num '66000' en x=0.632
+2026-04-30 18:05:20,546 [INFO] [Deadwood] Detectado: Fuel Ore
+2026-04-30 18:05:20,546 [DEBUG]   Num '81,721' en x=0.392
+2026-04-30 18:05:20,547 [DEBUG]   Num '4' en x=0.458
+2026-04-30 18:05:20,547 [DEBUG]   Num '100' en x=0.517
+2026-04-30 18:05:20,548 [DEBUG]   Num '50' en x=0.574
+2026-04-30 18:05:20,549 [DEBUG]   Num '100000' en x=0.632
+2026-04-30 18:05:20,549 [INFO] [Deadwood] Detectado: Consumer Goods
+2026-04-30 18:05:20,550 [DEBUG]   Num '3,827' en x=0.392
+2026-04-30 18:05:20,550 [DEBUG]   Num '4' en x=0.458
+2026-04-30 18:05:20,551 [DEBUG]   Num '10000' en x=0.517
+2026-04-30 18:05:20,551 [DEBUG]   Num '5000' en x=0.574
+2026-04-30 18:05:20,551 [DEBUG]   Num '20000' en x=0.632
+2026-04-30 18:05:20,552 [INFO] [Deadwood] Detectado: Natural Materials
+2026-04-30 18:05:20,552 [INFO] [Deadwood] Detectado: Fabricated Material
+2026-04-30 18:05:20,553 [DEBUG]   Num '699' en x=0.392
+2026-04-30 18:05:20,553 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:20,554 [DEBUG]   Num '300' en x=0.516
+2026-04-30 18:05:20,554 [DEBUG]   Num '150' en x=0.574
+2026-04-30 18:05:20,554 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:20,715 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_x09sgm8__input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_x09sgm8_', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:21,479 [DEBUG] --- [OCR] Ciudad: Ederar ---
+2026-04-30 18:05:21,483 [INFO] [Ederar] Detectado: Foodstuffs
+2026-04-30 18:05:21,484 [INFO] [Ederar] Detectado: Natural Materials
+2026-04-30 18:05:21,485 [DEBUG]   Num '30,000' en x=0.392
+2026-04-30 18:05:21,485 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:21,486 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:21,486 [INFO] [Ederar] Detectado: Consumer Goods
+2026-04-30 18:05:21,487 [DEBUG]   Num '|0' en x=0.392
+2026-04-30 18:05:21,487 [INFO] [Ederar] Detectado: Natural Materials
+2026-04-30 18:05:21,488 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:21,488 [DEBUG]   Num '253' en x=0.574
+2026-04-30 18:05:21,489 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:21,489 [INFO] [Ederar] Detectado: Refined Fuel
+2026-04-30 18:05:21,489 [DEBUG]   Num '3' en x=0.392
+2026-04-30 18:05:21,490 [DEBUG]   Num '1' en x=0.459
+2026-04-30 18:05:21,492 [DEBUG]   Num '3' en x=0.632
+2026-04-30 18:05:21,493 [INFO] [Ederar] Detectado: Fuel Ore
+2026-04-30 18:05:21,494 [DEBUG]   Num '6e6orelee' en x=0.310
+2026-04-30 18:05:21,494 [DEBUG]   Num '1438' en x=0.947
+2026-04-30 18:05:21,612 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_0891qx9h_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_0891qx9h', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:22,389 [DEBUG] --- [OCR] Ciudad: Erie ---
+2026-04-30 18:05:22,393 [INFO] [Erie] Detectado: Foodstuffs
+2026-04-30 18:05:22,393 [DEBUG]   Num '433' en x=0.392
+2026-04-30 18:05:22,394 [DEBUG]   Num '250' en x=0.458
+2026-04-30 18:05:22,394 [DEBUG]   Num '934' en x=0.516
+2026-04-30 18:05:22,395 [DEBUG]   Num '179' en x=0.574
+2026-04-30 18:05:22,396 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:22,397 [INFO] [Erie] Detectado: Natural Materials
+2026-04-30 18:05:22,397 [DEBUG]   Num '18,369' en x=0.393
+2026-04-30 18:05:22,397 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:22,398 [DEBUG]   Num '28' en x=0.516
+2026-04-30 18:05:22,398 [DEBUG]   Num '2' en x=0.574
+2026-04-30 18:05:22,399 [DEBUG]   Num '300000' en x=0.632
+2026-04-30 18:05:22,399 [INFO] [Erie] Detectado: Fuel Ore
+2026-04-30 18:05:22,400 [DEBUG]   Num '0' en x=0.392
+2026-04-30 18:05:22,400 [DEBUG]   Num '4' en x=0.458
+2026-04-30 18:05:22,401 [DEBUG]   Num '69' en x=0.574
+2026-04-30 18:05:22,401 [DEBUG]   Num '1000' en x=0.632
+2026-04-30 18:05:22,402 [INFO] [Erie] Detectado: Consumer Goods
+2026-04-30 18:05:22,402 [DEBUG]   Num '250' en x=0.392
+2026-04-30 18:05:22,403 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:22,403 [DEBUG]   Num '8976' en x=0.516
+2026-04-30 18:05:22,404 [DEBUG]   Num '7480' en x=0.574
+2026-04-30 18:05:22,404 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:22,405 [INFO] [Erie] Detectado: Fabricated Material
+2026-04-30 18:05:22,405 [INFO] [Erie] Detectado: Natural Materials
+2026-04-30 18:05:22,406 [DEBUG]   Num '340' en x=0.392
+2026-04-30 18:05:22,406 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:22,407 [DEBUG]   Num '304' en x=0.516
+2026-04-30 18:05:22,407 [DEBUG]   Num '253' en x=0.574
+2026-04-30 18:05:22,408 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:22,536 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_sngml1xa_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_sngml1xa', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:23,302 [DEBUG] --- [OCR] Ciudad: Freedom ---
+2026-04-30 18:05:23,307 [INFO] [Freedom] Detectado: Rare/Precious
+2026-04-30 18:05:23,307 [DEBUG]   Num '9,084' en x=0.392
+2026-04-30 18:05:23,308 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:23,308 [DEBUG]   Num '9000' en x=0.516
+2026-04-30 18:05:23,308 [DEBUG]   Num '4500' en x=0.573
+2026-04-30 18:05:23,309 [DEBUG]   Num '500000' en x=0.632
+2026-04-30 18:05:23,309 [INFO] [Freedom] Detectado: Foodstuffs
+2026-04-30 18:05:23,310 [INFO] [Freedom] Detectado: Natural Materials
+2026-04-30 18:05:23,310 [DEBUG]   Num '7,750' en x=0.392
+2026-04-30 18:05:23,311 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:23,311 [DEBUG]   Num '30' en x=0.516
+2026-04-30 18:05:23,312 [DEBUG]   Num '15' en x=0.574
+2026-04-30 18:05:23,312 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:23,313 [INFO] [Freedom] Detectado: Fuel Ore
+2026-04-30 18:05:23,315 [DEBUG]   Num '0' en x=0.392
+2026-04-30 18:05:23,315 [DEBUG]   Num '4' en x=0.458
+2026-04-30 18:05:23,316 [DEBUG]   Num '40' en x=0.573
+2026-04-30 18:05:23,316 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:23,316 [INFO] [Freedom] Detectado: Consumer Goods
+2026-04-30 18:05:23,317 [DEBUG]   Num '1,107' en x=0.393
+2026-04-30 18:05:23,317 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:23,318 [DEBUG]   Num '12000' en x=0.517
+2026-04-30 18:05:23,318 [DEBUG]   Num '6000' en x=0.574
+2026-04-30 18:05:23,319 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:23,320 [INFO] [Freedom] Detectado: Natural Materials
+2026-04-30 18:05:23,320 [INFO] [Freedom] Detectado: Fabricated Material
+2026-04-30 18:05:23,321 [DEBUG]   Num '2,744' en x=0.392
+2026-04-30 18:05:23,321 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:23,322 [DEBUG]   Num '280' en x=0.516
+2026-04-30 18:05:23,322 [DEBUG]   Num '140' en x=0.574
+2026-04-30 18:05:23,323 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:23,323 [INFO] [Freedom] Detectado: Refined Fuel
+2026-04-30 18:05:23,451 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_meveqwsl_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_meveqwsl', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:24,216 [DEBUG] --- [OCR] Ciudad: Gettysburg ---
+2026-04-30 18:05:24,220 [INFO] [Gettysburg] Detectado: Rare/Precious
+2026-04-30 18:05:24,221 [DEBUG]   Num '24' en x=0.392
+2026-04-30 18:05:24,222 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:24,222 [DEBUG]   Num '7200' en x=0.516
+2026-04-30 18:05:24,223 [DEBUG]   Num '3600' en x=0.574
+2026-04-30 18:05:24,223 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:24,223 [INFO] [Gettysburg] Detectado: Foodstuffs
+2026-04-30 18:05:24,224 [INFO] [Gettysburg] Detectado: Natural Materials
+2026-04-30 18:05:24,224 [DEBUG]   Num '20,167' en x=0.392
+2026-04-30 18:05:24,225 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:24,225 [DEBUG]   Num '20' en x=0.516
+2026-04-30 18:05:24,226 [DEBUG]   Num '10' en x=0.574
+2026-04-30 18:05:24,226 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:24,227 [INFO] [Gettysburg] Detectado: Fuel Ore
+2026-04-30 18:05:24,227 [DEBUG]   Num '24,868' en x=0.392
+2026-04-30 18:05:24,228 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:24,228 [DEBUG]   Num '80' en x=0.516
+2026-04-30 18:05:24,229 [DEBUG]   Num '40' en x=0.573
+2026-04-30 18:05:24,229 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:24,230 [INFO] [Gettysburg] Detectado: Consumer Goods
+2026-04-30 18:05:24,230 [DEBUG]   Num '152' en x=0.393
+2026-04-30 18:05:24,231 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:24,231 [DEBUG]   Num '42000' en x=0.517
+2026-04-30 18:05:24,232 [DEBUG]   Num '6000' en x=0.574
+2026-04-30 18:05:24,232 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:24,232 [INFO] [Gettysburg] Detectado: Fabricated Material
+2026-04-30 18:05:24,235 [INFO] [Gettysburg] Detectado: Natural Materials
+2026-04-30 18:05:24,236 [DEBUG]   Num '866' en x=0.392
+2026-04-30 18:05:24,236 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:24,237 [DEBUG]   Num '2000' en x=0.516
+2026-04-30 18:05:24,237 [DEBUG]   Num '1000' en x=0.574
+2026-04-30 18:05:24,238 [DEBUG]   Num '300000' en x=0.632
+2026-04-30 18:05:24,373 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_p_2t1vym_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_p_2t1vym', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:25,220 [DEBUG] --- [OCR] Ciudad: Kansas ---
+2026-04-30 18:05:25,224 [INFO] [Kansas] Detectado: Rare/Precious
+2026-04-30 18:05:25,224 [DEBUG]   Num '29,878' en x=0.392
+2026-04-30 18:05:25,225 [DEBUG]   Num '0' en x=0.459
+2026-04-30 18:05:25,225 [DEBUG]   Num '2800' en x=0.516
+2026-04-30 18:05:25,226 [DEBUG]   Num '1400' en x=0.575
+2026-04-30 18:05:25,226 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:25,227 [INFO] [Kansas] Detectado: Foodstuffs
+2026-04-30 18:05:25,227 [DEBUG]   Num '12,060' en x=0.393
+2026-04-30 18:05:25,228 [DEBUG]   Num '350' en x=0.459
+2026-04-30 18:05:25,228 [DEBUG]   Num '1500' en x=0.517
+2026-04-30 18:05:25,229 [DEBUG]   Num '750' en x=0.574
+2026-04-30 18:05:25,229 [DEBUG]   Num '27000' en x=0.632
+2026-04-30 18:05:25,230 [INFO] [Kansas] Detectado: Natural Materials
+2026-04-30 18:05:25,231 [DEBUG]   Num '56,220' en x=0.392
+2026-04-30 18:05:25,231 [DEBUG]   Num '0' en x=0.459
+2026-04-30 18:05:25,232 [DEBUG]   Num '10' en x=0.517
+2026-04-30 18:05:25,232 [DEBUG]   Num '5' en x=0.574
+2026-04-30 18:05:25,233 [DEBUG]   Num '190000' en x=0.633
+2026-04-30 18:05:25,233 [INFO] [Kansas] Detectado: Fuel Ore
+2026-04-30 18:05:25,234 [DEBUG]   Num '207,770' en x=0.392
+2026-04-30 18:05:25,234 [DEBUG]   Num '4' en x=0.458
+2026-04-30 18:05:25,234 [DEBUG]   Num '50' en x=0.516
+2026-04-30 18:05:25,235 [DEBUG]   Num '25' en x=0.574
+2026-04-30 18:05:25,235 [DEBUG]   Num '100000' en x=0.633
+2026-04-30 18:05:25,236 [INFO] [Kansas] Detectado: Consumer Goods
+2026-04-30 18:05:25,236 [DEBUG]   Num '990.' en x=0.401
+2026-04-30 18:05:25,237 [DEBUG]   Num '3' en x=0.459
+2026-04-30 18:05:25,237 [DEBUG]   Num '6600' en x=0.516
+2026-04-30 18:05:25,238 [DEBUG]   Num '3300' en x=0.574
+2026-04-30 18:05:25,238 [DEBUG]   Num '6000' en x=0.632
+2026-04-30 18:05:25,239 [INFO] [Kansas] Detectado: Natural Materials
+2026-04-30 18:05:25,239 [DEBUG]   Num '15,808' en x=0.393
+2026-04-30 18:05:25,240 [DEBUG]   Num '0' en x=0.459
+2026-04-30 18:05:25,240 [DEBUG]   Num '80' en x=0.516
+2026-04-30 18:05:25,241 [DEBUG]   Num '40' en x=0.574
+2026-04-30 18:05:25,241 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:25,242 [INFO] [Kansas] Detectado: Refined Fuel
+2026-04-30 18:05:25,242 [DEBUG]   Num '80,905' en x=0.392
+2026-04-30 18:05:25,243 [DEBUG]   Num '0' en x=0.459
+2026-04-30 18:05:25,244 [DEBUG]   Num '150' en x=0.517
+2026-04-30 18:05:25,246 [DEBUG]   Num '75' en x=0.574
+2026-04-30 18:05:25,246 [DEBUG]   Num '100000' en x=0.633
+2026-04-30 18:05:25,366 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_qaouchi8_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_qaouchi8', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:26,151 [DEBUG] --- [OCR] Ciudad: Lancaster ---
+2026-04-30 18:05:26,155 [INFO] [Lancaster] Detectado: Foodstuffs
+2026-04-30 18:05:26,155 [INFO] [Lancaster] Detectado: Natural Materials
+2026-04-30 18:05:26,156 [DEBUG]   Num '178' en x=0.393
+2026-04-30 18:05:26,156 [DEBUG]   Num '0' en x=0.459
+2026-04-30 18:05:26,157 [DEBUG]   Num '0' en x=0.516
+2026-04-30 18:05:26,157 [DEBUG]   Num '30' en x=0.574
+2026-04-30 18:05:26,158 [DEBUG]   Num '300000' en x=0.632
+2026-04-30 18:05:26,159 [INFO] [Lancaster] Detectado: Fuel Ore
+2026-04-30 18:05:26,159 [DEBUG]   Num '7' en x=0.392
+2026-04-30 18:05:26,160 [DEBUG]   Num '4' en x=0.458
+2026-04-30 18:05:26,160 [DEBUG]   Num '100' en x=0.517
+2026-04-30 18:05:26,161 [DEBUG]   Num '50' en x=0.574
+2026-04-30 18:05:26,161 [DEBUG]   Num '10000' en x=0.633
+2026-04-30 18:05:26,162 [INFO] [Lancaster] Detectado: Consumer Goods
+2026-04-30 18:05:26,162 [DEBUG]   Num '836' en x=0.392
+2026-04-30 18:05:26,163 [DEBUG]   Num '1' en x=0.459
+2026-04-30 18:05:26,163 [DEBUG]   Num '11000' en x=0.517
+2026-04-30 18:05:26,164 [DEBUG]   Num '5600' en x=0.574
+2026-04-30 18:05:26,165 [DEBUG]   Num '5000' en x=0.632
+2026-04-30 18:05:26,165 [INFO] [Lancaster] Detectado: Natural Materials
+2026-04-30 18:05:26,166 [DEBUG]   Num '1,649' en x=0.393
+2026-04-30 18:05:26,166 [DEBUG]   Num '0' en x=0.459
+2026-04-30 18:05:26,167 [DEBUG]   Num '0' en x=0.516
+2026-04-30 18:05:26,167 [DEBUG]   Num '300' en x=0.574
+2026-04-30 18:05:26,168 [DEBUG]   Num '300000' en x=0.632
+2026-04-30 18:05:26,168 [INFO] [Lancaster] Detectado: Refined Fuel
+2026-04-30 18:05:26,169 [DEBUG]   Num '69' en x=0.392
+2026-04-30 18:05:26,170 [DEBUG]   Num '0' en x=0.459
+2026-04-30 18:05:26,170 [DEBUG]   Num '300' en x=0.516
+2026-04-30 18:05:26,170 [DEBUG]   Num '160' en x=0.575
+2026-04-30 18:05:26,171 [DEBUG]   Num '300000' en x=0.632
+2026-04-30 18:05:26,361 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_7ytyu1b3_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_7ytyu1b3', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:27,134 [DEBUG] --- [OCR] Ciudad: Pimli ---
+2026-04-30 18:05:27,137 [INFO] [Pimli] Detectado: Foodstuffs
+2026-04-30 18:05:27,138 [DEBUG]   Num '34,129' en x=0.392
+2026-04-30 18:05:27,139 [DEBUG]   Num '138' en x=0.459
+2026-04-30 18:05:27,139 [DEBUG]   Num '747' en x=0.516
+2026-04-30 18:05:27,139 [DEBUG]   Num '280' en x=0.632
+2026-04-30 18:05:27,140 [INFO] [Pimli] Detectado: Natural Materials
+2026-04-30 18:05:27,140 [DEBUG]   Num '30,000' en x=0.392
+2026-04-30 18:05:27,141 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:27,141 [DEBUG]   Num '3' en x=0.516
+2026-04-30 18:05:27,142 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:27,142 [INFO] [Pimli] Detectado: Consumer Goods
+2026-04-30 18:05:27,143 [DEBUG]   Num '124' en x=0.393
+2026-04-30 18:05:27,143 [DEBUG]   Num '19' en x=0.459
+2026-04-30 18:05:27,144 [DEBUG]   Num '11101' en x=0.517
+2026-04-30 18:05:27,144 [DEBUG]   Num 'e280' en x=0.574
+2026-04-30 18:05:27,145 [DEBUG]   Num '242' en x=0.632
+2026-04-30 18:05:27,145 [INFO] [Pimli] Detectado: Natural Materials
+2026-04-30 18:05:27,146 [DEBUG]   Num '3,926' en x=0.392
+2026-04-30 18:05:27,146 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:27,147 [DEBUG]   Num '258' en x=0.516
+2026-04-30 18:05:27,147 [DEBUG]   Num '215' en x=0.574
+2026-04-30 18:05:27,148 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:27,149 [INFO] [Pimli] Detectado: Refined Fuel
+2026-04-30 18:05:27,149 [DEBUG]   Num '1,184' en x=0.393
+2026-04-30 18:05:27,150 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:27,150 [DEBUG]   Num '390' en x=0.516
+2026-04-30 18:05:27,150 [DEBUG]   Num '0' en x=0.632
+2026-04-30 18:05:27,324 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_bnrbbvyu_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_bnrbbvyu', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:28,098 [DEBUG] --- [OCR] Ciudad: SovietUnion ---
+2026-04-30 18:05:28,102 [INFO] [SovietUnion] Detectado: Rare/Precious
+2026-04-30 18:05:28,102 [DEBUG]   Num '109' en x=0.393
+2026-04-30 18:05:28,103 [DEBUG]   Num '5000' en x=0.458
+2026-04-30 18:05:28,103 [DEBUG]   Num '7956' en x=0.574
+2026-04-30 18:05:28,104 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:28,104 [INFO] [SovietUnion] Detectado: Foodstuffs
+2026-04-30 18:05:28,104 [INFO] [SovietUnion] Detectado: Natural Materials
+2026-04-30 18:05:28,105 [INFO] [SovietUnion] Detectado: Natural Materials
+2026-04-30 18:05:28,105 [DEBUG]   Num '20' en x=0.392
+2026-04-30 18:05:28,106 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:28,106 [DEBUG]   Num '39' en x=0.516
+2026-04-30 18:05:28,107 [DEBUG]   Num '32' en x=0.574
+2026-04-30 18:05:28,107 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:28,107 [INFO] [SovietUnion] Detectado: Fuel Ore
+2026-04-30 18:05:28,108 [DEBUG]   Num '0' en x=0.392
+2026-04-30 18:05:28,108 [DEBUG]   Num '50' en x=0.458
+2026-04-30 18:05:28,109 [DEBUG]   Num '69' en x=0.574
+2026-04-30 18:05:28,109 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:28,110 [INFO] [SovietUnion] Detectado: Consumer Goods
+2026-04-30 18:05:28,110 [DEBUG]   Num '2,111' en x=0.392
+2026-04-30 18:05:28,111 [DEBUG]   Num '500' en x=0.458
+2026-04-30 18:05:28,111 [DEBUG]   Num '871' en x=0.516
+2026-04-30 18:05:28,111 [DEBUG]   Num '7259' en x=0.574
+2026-04-30 18:05:28,112 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:28,112 [INFO] [SovietUnion] Detectado: Natural Materials
+2026-04-30 18:05:28,113 [DEBUG]   Num '29,950' en x=0.392
+2026-04-30 18:05:28,113 [DEBUG]   Num '1500' en x=0.459
+2026-04-30 18:05:28,114 [DEBUG]   Num '187' en x=0.517
+2026-04-30 18:05:28,114 [DEBUG]   Num '156' en x=0.574
+2026-04-30 18:05:28,114 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:28,115 [INFO] [SovietUnion] Detectado: Refined Fuel
+2026-04-30 18:05:28,211 [DEBUG] ['C:\\Program Files\\Tesseract-OCR\\tesseract.exe', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_su1ta6zz_input.PNG', 'C:\\Users\\nohis\\AppData\\Local\\Temp\\tess_su1ta6zz', '-c', 'tessedit_create_tsv=1']
+2026-04-30 18:05:28,995 [DEBUG] --- [OCR] Ciudad: Terrazul ---
+2026-04-30 18:05:28,999 [INFO] [Terrazul] Detectado: Rare/Precious
+2026-04-30 18:05:28,999 [DEBUG]   Num '0' en x=0.458
+2026-04-30 18:05:29,000 [DEBUG]   Num '9204' en x=0.574
+2026-04-30 18:05:29,001 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:29,001 [INFO] [Terrazul] Detectado: Foodstuffs
+2026-04-30 18:05:29,002 [DEBUG]   Num '[7' en x=0.510
+2026-04-30 18:05:29,002 [INFO] [Terrazul] Detectado: Natural Materials
+2026-04-30 18:05:29,003 [INFO] [Terrazul] Detectado: Natural Materials
+2026-04-30 18:05:29,003 [DEBUG]   Num '67' en x=0.392
+2026-04-30 18:05:29,004 [DEBUG]   Num '550' en x=0.458
+2026-04-30 18:05:29,004 [DEBUG]   Num '32' en x=0.574
+2026-04-30 18:05:29,005 [DEBUG]   Num '720' en x=0.632
+2026-04-30 18:05:29,005 [INFO] [Terrazul] Detectado: Fuel Ore
+2026-04-30 18:05:29,006 [DEBUG]   Num '425' en x=0.392
+2026-04-30 18:05:29,006 [DEBUG]   Num '100' en x=0.459
+2026-04-30 18:05:29,007 [DEBUG]   Num '72' en x=0.516
+2026-04-30 18:05:29,007 [DEBUG]   Num '60' en x=0.574
+2026-04-30 18:05:29,008 [DEBUG]   Num '30000' en x=0.632
+2026-04-30 18:05:29,008 [INFO] [Terrazul] Detectado: Natural Materials
+2026-04-30 18:05:29,009 [INFO] [Terrazul] Detectado: Fabricated Material
+2026-04-30 18:05:29,010 [DEBUG]   Num '276' en x=0.392
+2026-04-30 18:05:29,012 [DEBUG]   Num '550' en x=0.458
+2026-04-30 18:05:29,013 [DEBUG]   Num '320' en x=0.574
+2026-04-30 18:05:29,013 [DEBUG]   Num '720' en x=0.632
+2026-04-30 18:05:29,014 [INFO] [Terrazul] Detectado: Refined Fuel
+2026-04-30 18:05:29,014 [DEBUG]   Num '&2e' en x=0.289
+2026-04-30 18:05:29,015 [DEBUG]   Num 'a8' en x=0.290
+2026-04-30 18:05:29,015 [DEBUG]   Num '[287' en x=0.510
+2026-04-30 18:05:29,486 [INFO] --- Proceso finalizado con éxito ---
