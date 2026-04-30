@@ -357,13 +357,13 @@ assert CITY_ROW_ORDER == COMMODITY_CATEGORIES, "Row order must match COMMODITY_C
 # Keywords used to identify each commodity row even if position drifts.
 # Every entry must be unique enough not to false-match another row.
 CITY_ROW_KEYWORDS = {
-    "Rare/Precious":       ("rare", "precious", "preci"),
-    "Foodstuffs":          ("food", "stuff"),
-    "Natural Materials":   ("natural", "mater"),
+    "Rare/Precious":       ("rare", "precious"),
+    "Foodstuffs":          ("food",),
+    "Natural Materials":   ("natural",),
     "Fuel Ore":            ("fuel ore", "ore"),
-    "Consumer Goods":      ("consumer", "goods"),
-    "Fabricated Material": ("fabricated", "fabric"),
-    "Refined Fuel":        ("refined", "fuel"),
+    "Consumer Goods":      ("consumer",),
+    "Fabricated Material": ("fabricated",),
+    "Refined Fuel":        ("refined",),
 }
 
 # City column layout — numbers extracted after the leading text label:
@@ -510,71 +510,54 @@ def _candidate_city_lines(lines: list[str]) -> list[str]:
 
 def _parse_city_rows_with_color(img_cv):
     """
-    Versión con anclaje de columnas: Usa coordenadas X para que los números
-    no se desplacen si el OCR falla en una columna.
+    New version: Uses image_to_data to get coordinates and check for red.
     """
     d = pytesseract.image_to_data(img_cv, output_type=Output.DICT)
-    img_width = img_cv.shape[1]
     
-    # Mapeo de columnas por posición horizontal (%)
-    # Qty (~35%), Reserve (~52%), Sell (~65%), Buy (~79%), Max (~93%)
-    COL_RANGES = {
-        "qty":     (0.30, 0.45),
-        "reserve": (0.46, 0.58),
-        "sell":    (0.59, 0.72),
-        "buy":     (0.73, 0.86),
-        "max":     (0.87, 1.00)
-    }
-
+    # Group OCR words into physical lines based on Y coordinate
     lines = {}
     for i in range(len(d['text'])):
         word = d['text'][i].strip()
         if not word: continue
         
-        # Agrupar por línea física (Y)
+        # Round Y to nearest 10px to group words on the same line
         y_coord = d['top'][i] // 10 * 10 
         if y_coord not in lines: lines[y_coord] = []
         
-        # Guardar posición X relativa (0.0 a 1.0)
-        rel_x = d['left'][i] / img_width
+        # Check if this specific word is red
         is_word_red = is_red(img_cv, d['left'][i], d['top'][i], d['width'][i], d['height'][i])
-        lines[y_coord].append({'text': word, 'x': rel_x, 'red': is_word_red})
+        lines[y_coord].append({'text': word, 'red': is_word_red})
 
     results = []
+    # Identify rows using keywords (fixes missing rows issue)
     for y in sorted(lines.keys()):
         line_data = lines[y]
         line_text = " ".join([w['text'] for w in line_data]).lower()
         
-        # Verificar si la línea contiene una materia prima válida
         commodity = _keyword_match_commodity(line_text)
         if not commodity: continue
 
-        # Diccionario para colocar cada valor en su "cajón" correcto
-        row_map = {"qty": 0, "reserve": 0, "sell": None, "buy": None, "max": 0}
-
+        # Extract numbers, but set to 0 if the word was red
+        nums = []
         for w in line_data:
-            # Limpiar el texto para dejar solo números
             clean = re.sub(r"[^0-9.]", "", w['text'])
-            if not clean: continue
-            
-            try:
+            if clean:
                 val = int(float(clean))
-                # Buscamos a qué columna pertenece según su X
-                for col_name, (xmin, xmax) in COL_RANGES.items():
-                    if xmin <= w['x'] <= xmax:
-                        if w['red']:
-                            # Si es rojo, cantidad/max es 0, precios son None
-                            row_map[col_name] = None if col_name in ["sell", "buy"] else 0
-                        else:
-                            row_map[col_name] = val
-                        break
-            except: continue
+                # IF RED: Treat as 0 (out of stock/cannot trade)
+                if w['red']:
+                    val = 0
+                nums.append(val)
 
-        # Insertar los datos en el orden exacto que espera el Excel
+        # Ensure we have the standard 5 numbers for a City row
+        while len(nums) < 5: nums.append(0)
+        
         results.append([
             commodity, commodity,
-            row_map["qty"], row_map["reserve"], row_map["sell"], 
-            row_map["buy"], row_map["max"]
+            nums[0], # Qty
+            nums[1], # Reserve
+            nums[2], # Sell
+            nums[3], # Buy
+            nums[4]  # Max
         ])
             
     return results, None
@@ -812,39 +795,38 @@ def build_trade_catalog(data_dict: dict) -> dict:
     return catalog
 
 
-def find_trade_opportunities(catalog, ship_capacity, budget):
+def find_trade_opportunities(catalog: dict) -> list:
     opportunities = []
-    for src, commodities in catalog.items():
-        for commodity, src_data in commodities.items():
-            # Filtro estricto: Si no hay precio de venta o es 0, no se puede comprar
-            if src_data.get("selling") is None or src_data["selling"] <= 0:
+    locations = list(catalog.keys())
+    for src in locations:
+        for dst in locations:
+            if src == dst:
                 continue
-                
-            for dst, dst_commodities in catalog.items():
-                if src == dst: continue
-                if commodity not in dst_commodities: continue
-                
-                dst_data = dst_commodities[commodity]
-                # Filtro estricto: Si no hay precio de compra, no se puede vender
-                if dst_data.get("buying") is None or dst_data["buying"] <= 0:
+            for commodity, src_data in catalog[src].items():
+                if commodity not in catalog[dst]:
                     continue
-                
+                dst_data = catalog[dst][commodity]
+                if src_data["selling"] is None or dst_data["buying"] is None:
+                    continue
                 profit_per_mt = dst_data["buying"] - src_data["selling"]
-                
-                if profit_per_mt > 0:
-                    # Aquí calculas el ROI y el beneficio real
-                    qty_to_buy = min(src_data.get("qty", 0), ship_capacity)
-                    total_profit = qty_to_buy * profit_per_mt
-                    
-                    if total_profit > 0:
-                        opportunities.append({
-                            "commodity": commodity,
-                            "source": src,
-                            "destination": dst,
-                            "profit_mt": profit_per_mt,
-                            "total_profit": total_profit,
-                            # ... resto de datos ...
-                        })
+                if profit_per_mt <= 0:
+                    continue
+                src_avail = src_data.get("sell_capacity", 0) or 0
+                dst_cap   = dst_data.get("buy_capacity", 0) or 0
+                max_qty   = min(src_avail, dst_cap) if src_avail > 0 and dst_cap > 0 else 0
+                opportunities.append({
+                    "commodity":           commodity,
+                    "source":              src,
+                    "source_selling":      src_data["selling"],
+                    "source_available":    src_avail,
+                    "destination":         dst,
+                    "destination_buying":  dst_data["buying"],
+                    "destination_capacity": dst_cap,
+                    "profit_per_mt":       profit_per_mt,
+                    "max_qty":             max_qty,
+                    "total_profit":        profit_per_mt * max_qty,
+                })
+    opportunities.sort(key=lambda x: x["total_profit"], reverse=True)
     return opportunities
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1143,9 +1125,9 @@ def calculate_macro_data(catalog: dict, opportunities: list) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def save_to_excel(data_dict, selected_ship, ship_capacity, output_file, 
-                  is_rental, rental_cost_per_day, origin, budget, 
-                  containers_used, mode, trade_route_params, all_opportunities=None):
+def save_to_excel(data_dict, selected_ship, ship_capacity, output_file="final_trade.xlsx",
+                  is_rental=False, rental_cost_per_day=None, origin="Delois Spot",
+                  budget=None, containers_used=None, mode="regular", trade_route_params=None):
 
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
@@ -1237,7 +1219,7 @@ def save_to_excel(data_dict, selected_ship, ship_capacity, output_file,
 
     # ── Opportunities ─────────────────────────────────────────────────────────
     catalog = build_trade_catalog(data_dict)
-    opportunities = find_trade_opportunities(catalog, ship_capacity, budget)
+    all_opportunities = find_trade_opportunities(catalog)
 
     if all_opportunities:
         all_opportunities = assign_grades(
@@ -1575,34 +1557,22 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
         else:
             print(f"  ✗ No se pudo abrir la imagen: {filename}")
 
-# --- CÁLCULO Y FILTRADO ---
-    if data_dict["Cities"]["rows"] or ( "EasyDock" in data_dict and data_dict["EasyDock"]["rows"] ):
-        catalog = build_trade_catalog(data_dict)
-        
-        # Calculamos todas las rutas posibles primero
-        raw_opps = find_trade_opportunities(catalog, ship_capacity, budget)
-        
-        # Filtramos por ciudad si es el modo 2
-        if mode == "city" and origin:
-            opportunities = [o for o in raw_opps if o['source'] == origin]
-        else:
-            opportunities = raw_opps
-
+    if data_dict["Cities"]["rows"] or data_dict["EasyDock"]["rows"]:
+        catalog       = build_trade_catalog(data_dict)
+        opportunities = find_trade_opportunities(catalog)
         print(f"\n{'='*60}")
-        print(f"   Opportunities found: {len(opportunities)}")
+        print(f"  Opportunities found: {len(opportunities)}")
         print(f"{'='*60}")
-
-        # Llamada a la función de guardado
         save_to_excel(
             data_dict, selected_ship, ship_capacity,
             output_file=output_file, is_rental=is_rental,
             rental_cost_per_day=ship_rental_cost, origin=origin,
             budget=budget, containers_used=containers_used,
             mode=mode, trade_route_params=trade_route_params,
-            all_opportunities=opportunities  # Ahora la función sí aceptará esto
         )
     else:
         print("\n  No data found to save.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Rise TVP Trade Route Optimizer")
