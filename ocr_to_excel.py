@@ -18,6 +18,11 @@ from PIL import Image
 from pytesseract import Output
 import pytesseract
 
+debug_folder = "debug_images"
+if not os.path.exists(debug_folder):
+    os.makedirs(debug_folder)
+
+
 # --- TESSERACT CONFIG ---
 if platform.system() == "Windows":
     for _cand in [r"C:\Program Files\Tesseract-OCR\tesseract.exe", r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"]:
@@ -27,12 +32,15 @@ if platform.system() == "Windows":
 
 # --- CONSTANTS ---
 COMMODITY_CATEGORIES = ["Rare/Precious", "Foodstuffs", "Natural Materials", "Fuel Ore", "Consumer Goods", "Fabricated Material", "Refined Fuel"]
+COMMODITY_ORDER = COMMODITY_CATEGORIES
+
 GRADE_STYLES = {
     "A": {"fill": "00B050", "font": "FFFFFF"},
     "B": {"fill": "92D050", "font": "000000"},
     "C": {"fill": "FFC000", "font": "000000"},
     "D": {"fill": "A6A6A6", "font": "FFFFFF"},
 }
+
 SHIPS = {
     "AIR AND SPACE": {
         "E-10 Saint": {"cargo_base": 7, "max_containers": 6, "container_mt": 17, "rental_cost_per_day": None},
@@ -45,26 +53,49 @@ SHIPS = {
         "T-19 Stratomaster": {"cargo_base": 1, "max_containers": 1, "container_mt": 17, "rental_cost_per_day": None},
     },
 }
+
 CITIES = {
-    "Alphaville": {"x": 420, "y": 180}, "Comstock": {"x": 380, "y": 210}, "Deadwood": {"x": 340, "y": 230},
-    "Ederar": {"x": 300, "y": 200}, "Erie": {"x": 460, "y": 250}, "Freedom": {"x": 200, "y": 320},
-    "Gettysburg": {"x": 400, "y": 290}, "Kansas": {"x": 250, "y": 300}, "Lancaster": {"x": 350, "y": 350},
-    "Pimli": {"x": 270, "y": 280}, "SovietUnion": {"x": 500, "y": 150}, "Terrazul": {"x": 480, "y": 320},
-    "Sharney 1": {"x": 320, "y": 400}, "Sharney 2": {"x": 360, "y": 450}, "Sharney 3": {"x": 400, "y": 500},
-    "Delois Spot": {"x": 310, "y": 260},
+    "Alphaville": {"x": 420, "y": 180}, 
+    "Comstock": {"x": 380, "y": 210}, 
+    "Deadwood": {"x": 340, "y": 230},
+    "Ederar": {"x": 300, "y": 200}, 
+    "Erie": {"x": 460, "y": 250},
+    "Freedom": {"x": 200, "y": 320},
+    "Gettysburg": {"x": 400, "y": 290},
+    "Kansas": {"x": 250, "y": 300}, 
+    "Lancaster": {"x": 350, "y": 350}, 
+    "Pimlico": {"x": 270, "y": 280}, 
+    "SovietUnion": {"x": 500, "y": 150}, 
+    "Terrazul": {"x": 480, "y": 320},
+    "Sharney 1": {"x": 320, "y": 400},
+    "Bethleham": {"x": 0, "y": 0},
+    "Deois":     {"x": 310, "y": 260},
+    "Outer D":   {"x": 0, "y": 0},
+    "Papanui":   {"x": 0, "y": 0},
+    "Sharney":   {"x": 0, "y": 0},
+    "Solaris":   {"x": 0, "y": 0},
+    "Vegapoint": {"x": 0, "y": 0},
+    "CapeW":     {"x": 0, "y": 0},
 }
 CITY_LIST = sorted(CITIES.keys())
 TAKEOFF_TIME, LANDING_TIME, SPEED_UNITS_PER_MIN = 5, 10, 5.0
+
 CITY_ROW_KEYWORDS = {
     "Rare/Precious": ("rare", "precious"), "Foodstuffs": ("food", "stuff"),
     "Natural Materials": ("natural", "mater"), "Fuel Ore": ("fuel ore", "ore"),
     "Consumer Goods": ("consumer", "goods"), "Fabricated Material": ("fabricated", "fabric"),
     "Refined Fuel": ("refined", "fuel"),
 }
-_SKIP_KEYWORDS = ("totals", "refresh", "cancel", "population", "fees", "ports staffed", "mt free", "cr free")
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s',
-                    handlers=[logging.FileHandler("debug_log.txt", mode='w'), logging.StreamHandler(sys.stdout)])
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[logging.FileHandler("debug_log.txt", mode='w', encoding='utf-8'), logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
+
+# FORZAR stdout a UTF-8
+sys.stdout.reconfigure(encoding='utf-8')
 logger = logging.getLogger(__name__)
 
 # --- LAYER 1: OCR & DATA STRUCTURES ---
@@ -73,19 +104,20 @@ class CommodityRow:
     commodity: str
     quantity_mt: int = 0
     reserve_mt: int = 0
-    sell_price: Optional[int] = None
-    buy_price: Optional[int] = None
+    sell_price: Optional[int] = None  # Price YOU pay to BUY from city (city is selling)
+    buy_price: Optional[int] = None   # Price city pays YOU when you SELL to them (city is buying)
     maximum_mt: int = 0
-    # Añadimos estas dos líneas para solucionar el error:
     sell_locked: bool = False
     buy_locked: bool = False
     
     @property
     def sell_capacity(self) -> int: 
+        """MT available for YOU to BUY from this city"""
         return max(self.quantity_mt - self.reserve_mt, 0)
 
     @property
     def buy_capacity(self) -> int:
+        """MT this city will BUY from YOU"""
         return max(self.maximum_mt - self.quantity_mt, 0)
 
 @dataclass
@@ -95,84 +127,223 @@ class CitySnapshot:
     footer: Optional[any] = None
 
 def clean_ocr_number(text: str) -> int:
-    clean_str = re.sub(r'[^\d]', '', text)
-    return int(clean_str) if clean_str else 0
+    """Limpia el ruido del OCR y maneja correctamente separadores de miles y errores como ',.' """
+    if not text: return 0
+    # Eliminar espacios y carácteres no numéricos (excepto separadores)
+    clean_str = re.sub(r'[^\d,.]', '', text)
+    # Si detecta el patrón de error ',.' o simplemente miles, eliminamos los separadores
+    clean_str = clean_str.replace(',.', '').replace(',', '').replace('.', '')
+    
+    try:
+        return int(clean_str) if clean_str else 0
+    except ValueError:
+        return 0
+
+
+def save_debug_image(image_obj, commodity_name, field_type):
+    """
+    image_obj: El recorte de la imagen (objeto PIL o OpenCV)
+    commodity_name: Nombre del producto (ej. 'Rare/Precious')
+    field_type: Qué estamos leyendo (ej. 'Qty' o 'Price')
+    """
+    # LIMPIEZA CRÍTICA: Reemplazamos / y espacios por guiones bajos
+    clean_name = commodity_name.replace("/", "_").replace(" ", "_").lower()
+    
+    filename = f"{clean_name}_{field_type}.png"
+    filepath = os.path.join(debug_folder, filename)
+    
+    # Si usas PIL (como parece en tu traceback)
+    image_obj.save(filepath)
+    
+    # logger.debug(f"DEBUG: Imagen guardada en {filepath}") # Opcional
+    return filepath
 
 def _is_red(img_cv, x, y, w, h):
+    """Detecta si el precio está en rojo (bloqueado)."""
+    # Extraemos la región de interés (el precio)
     roi = img_cv[max(0, y-2):y+h+2, max(0, x-2):x+w+2]
     if roi.size == 0: return False
+    
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-    m1 = cv2.inRange(hsv, np.array([0, 70, 70]), np.array([10, 255, 255]))
-    m2 = cv2.inRange(hsv, np.array([160, 70, 70]), np.array([180, 255, 255]))
-    return (np.count_nonzero(cv2.bitwise_or(m1, m2)) / roi.size) > 0.15
+    # Rangos de rojo en el espectro HSV
+    lower_red1 = np.array([0, 70, 50])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 70, 50])
+    upper_red2 = np.array([180, 255, 255])
+    
+    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    mask = cv2.bitwise_or(mask1, mask2)
+    
+    # Si más del 10% de los píxeles son rojos, asumimos que está bloqueado
+    pixel_ratio = np.count_nonzero(mask) / (roi.shape[0] * roi.shape[1])
+    return pixel_ratio > 0.1
 
-def parse_city_image(img_cv, city_name: str) -> CitySnapshot:
+def preprocess_for_ocr(img_cv):
+    """Preprocesamiento ultra-sensible para categorías difíciles."""
+    gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+    
+    # Aumentamos el contraste antes de binarizar
+    enhanced = cv2.convertScaleAbs(gray, alpha=1.5, beta=0) 
+    
+    # Binarización más permisiva (umbral 150 en lugar de adaptativo extremo)
+    _, thresh = cv2.threshold(enhanced, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Invertir si el fondo es claro (opcional, según tu UI)
+    # thresh = cv2.bitwise_not(thresh) 
+    
+    return thresh
+
+def extract_number_from_region(img_processed, img_original, x1, y1, x2, y2, region_name=""):
+    """
+    CRITICAL FIX: Detecta si está bloqueado y aplica un umbral en el canal rojo
+    para que Tesseract no devuelva None.
+    """
+    h, w = img_original.shape[:2]
+    
+    # Reducimos el área de lectura 2px para no tocar los bordes
+    x1, y1, x2, y2 = x1+2, y1+2, x2-2, y2-2
+    x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
+    
+    # Usamos siempre la imagen a color original para esta zona
+    roi_color = img_original[y1:y2, x1:x2]
+    
+    if roi_color.size == 0: return None, False
+
+    # 1. Detección de color rojo (Bloqueado)
+    hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
+    mask = cv2.bitwise_or(cv2.inRange(hsv, (0, 70, 50), (10, 255, 255)), 
+                          cv2.inRange(hsv, (170, 70, 50), (180, 255, 255)))
+    is_locked = (np.count_nonzero(mask) / roi_color.size) > 0.05
+
+    # 2. Preprocesamiento adaptativo según el color
+    if is_locked:
+        # Si es rojo, separamos canales y usamos el Rojo (r) para máximo contraste
+        b, g, r = cv2.split(roi_color)
+        _, roi_ready = cv2.threshold(r, 150, 255, cv2.THRESH_BINARY_INV)
+    else:
+        # Si es normal, pasamos a gris y binarizamos
+        gray = cv2.cvtColor(roi_color, cv2.COLOR_BGR2GRAY)
+        enhanced = cv2.convertScaleAbs(gray, alpha=1.5, beta=0) 
+        _, roi_ready = cv2.threshold(enhanced, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # 3. Intentamos leer con OCR
+    configs = ['--psm 7', '--psm 6']
+    text = ""
+    
+    for cfg in configs:
+        full_cfg = f'{cfg} -c tessedit_char_whitelist=0123456789.,'
+        text = pytesseract.image_to_string(roi_ready, config=full_cfg).strip()
+        if text: break # Si encontró algo, paramos
+
+    num = clean_ocr_number(text)
+    
+    # Devuelve el número (int) para no romper las matemáticas y el estado locked
+    return num if num > 0 else None, is_locked
+
+def parse_city_image_fixed_regions(img_cv, city_name: str) -> CitySnapshot:
+    """
+    Parser con coordenadas FIJAS calibradas para layout 1100x630.
+    FIXED: Now correctly returns values even when locked.
+    """
     snapshot = CitySnapshot(city_name=city_name)
-    d = pytesseract.image_to_data(img_cv, output_type=Output.DICT)
-    img_width = img_cv.shape[1]
-    
-    # --- COORDENADAS AJUSTADAS SEGÚN TUS LOGS ---
-    # He movido ligeramente las anclas a la derecha (p.ej. sell de 0.47 a 0.50)
-    COL_ANCHORS = {
-        'sell': 0.39,   # Adjusted from 0.38
-        'buy':  0.51,   # Adjusted from 0.50
-        'qty':  0.58,   # Matches SovietUnion logs
-        'max':  0.65    # Adjusted for wider text fields
+    h, w = img_cv.shape[:2]
+
+    logger.info(f"\n{'='*60}")
+    logger.info(f"Procesando: {city_name} (Ajuste de precisión)")
+    logger.info(f"Tamaño: {w}x{h}")
+    logger.info(f"{'='*60}")
+
+    # =========================
+    # 📐 CONFIG RE-CALIBRADA (PIXELS)
+    # =========================
+    COLS = {
+        "quantity": 332,   # Estable
+        "reserve":  449,   # Estable
+        "sell":     554,   # Estable (precio que pagas TÚ para COMPRAR de la ciudad)
+        "buy":      663,   # Ajustado +1/3 derecha (precio que la ciudad te PAGA cuando vendes)
+        "maximum":  788,   # Ajustado +1/5 derecha
     }
-    TOLERANCE = 0.12    # Increased from 0.10 to catch "shifty" columns
+
+    # Ajuste vertical
+    ROWS_Y = [
+        ("Rare/Precious",        92), 
+        ("Foodstuffs",           173), 
+        ("Natural Materials",    246),
+        ("Fuel Ore",             321), 
+        ("Consumer Goods",       385),
+        ("Fabricated Material",  457), 
+        ("Refined Fuel",         532), 
+    ]
+    CELL_WIDTH = 110   
+    CELL_HEIGHT = 48
     
-    logger.debug(f"--- [OCR] Ciudad: {city_name} ---")
+    def get_region(x, y):
+        return (
+            int(x - CELL_WIDTH // 2),
+            int(y - CELL_HEIGHT // 2),
+            int(x + CELL_WIDTH // 2),
+            int(y + CELL_HEIGHT // 2),
+        )
 
-    lines = {}
-    for i, text in enumerate(d["text"]):
-        word = text.strip()
-        if not word: continue
-        y_bucket = d["top"][i] // 15 * 15
-        lines.setdefault(y_bucket, []).append({
-            "text": word, 
-            "x": d["left"][i] / img_width, 
-            "red": _is_red(img_cv, d["left"][i], d["top"][i], d["width"][i], d["height"][i])
-        })
+    # =========================
+    # 🔍 OCR LOOP
+    # =========================
+    for commodity, row_y in ROWS_Y:
+        logger.info(f"\nProcesando commodity: {commodity} (Y={row_y})")
 
-    for y in sorted(lines.keys()):
-        line_text = " ".join(w["text"] for w in lines[y]).lower()
-        if any(kw in line_text for kw in _SKIP_KEYWORDS): continue
-            
-        commodity = next((c for c, kws in CITY_ROW_KEYWORDS.items() if any(kw in line_text for kw in kws)), None)
-        if not commodity: continue
-            
-        logger.info(f"[{city_name}] Detectado: {commodity}")
-        
-        vals = {k: 0 for k in COL_ANCHORS}; reds = {k: False for k in COL_ANCHORS}
-        
-        for w in lines[y]:
-            if re.sub(r'[^\d]', '', w["text"]) == "": continue
-                
-            # Hemos quitado los símbolos ✔ y ✗ para evitar el error de Unicode
-            logger.debug(f"  Num '{w['text']}' en x={w['x']:.3f}")
-            
-            for col, anchor in COL_ANCHORS.items():
-                diff = abs(w["x"] - anchor)
-                if diff < TOLERANCE:
-                    num = clean_ocr_number(w["text"])
-                    if num > 0: 
-                        vals[col] = num
-                        reds[col] = w["red"]
-        
-        snapshot.commodities.append(CommodityRow(
-            commodity=commodity, 
-            quantity_mt=vals["qty"],  # Fixed: matches anchor key
-            reserve_mt=0,             # Set to 0 if not currently being scanned
-            sell_price=vals["sell"] if not reds["sell"] else None,
-            buy_price=vals["buy"] if not reds["buy"] else None,
-            maximum_mt=vals["max"],   # Fixed: matches anchor key
-            sell_locked=reds["sell"], 
-            buy_locked=reds["buy"]
-        ))
-        
+        # 1. Quantity MT
+        x1, y1, x2, y2 = get_region(COLS["quantity"], row_y)
+        crop_qty = Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)).crop((x1, y1, x2, y2))
+        save_debug_image(crop_qty, commodity, "Qty")
+        quantity_mt, _ = extract_number_from_region(img_cv, img_cv, x1, y1, x2, y2, f"{commodity} - Quantity")
+
+        # 2. Reserve MT
+        x1, y1, x2, y2 = get_region(COLS["reserve"], row_y)
+        save_debug_image(Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)).crop((x1, y1, x2, y2)), commodity, "Reserve")
+        reserve_mt, _ = extract_number_from_region(img_cv, img_cv, x1, y1, x2, y2, f"{commodity} - Reserve")
+
+        # 3. Sell Price (what YOU pay to BUY from city)
+        x1, y1, x2, y2 = get_region(COLS["sell"], row_y)
+        save_debug_image(Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)).crop((x1, y1, x2, y2)), commodity, "Sell")
+        sell_price, sell_locked = extract_number_from_region(img_cv, img_cv, x1, y1, x2, y2, f"{commodity} - Sell Price")
+
+        # 4. Buy Price (what city PAYS YOU when you sell)
+        x1, y1, x2, y2 = get_region(COLS["buy"], row_y)
+        save_debug_image(Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)).crop((x1, y1, x2, y2)), commodity, "Buy")
+        buy_price, buy_locked = extract_number_from_region(img_cv, img_cv, x1, y1, x2, y2, f"{commodity} - Buy Price")
+
+        # 5. Maximum MT
+        x1, y1, x2, y2 = get_region(COLS["maximum"], row_y)
+        save_debug_image(Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)).crop((x1, y1, x2, y2)), commodity, "Max")
+        maximum_mt, _ = extract_number_from_region(img_cv, img_cv, x1, y1, x2, y2, f"{commodity} - Maximum")
+
+        # --- DATA ASSEMBLY ---
+        row = CommodityRow(
+            commodity=commodity,
+            quantity_mt=int(quantity_mt) if quantity_mt else 0,
+            reserve_mt=int(reserve_mt) if reserve_mt else 0,
+            sell_price=int(sell_price) if sell_price else None,  # Keep value even if locked
+            buy_price=int(buy_price) if buy_price else None,     # Keep value even if locked
+            maximum_mt=int(maximum_mt) if maximum_mt else 0,
+            sell_locked=sell_locked,
+            buy_locked=buy_locked
+        )
+        snapshot.commodities.append(row)
+
+        logger.info(
+            f"  OK {commodity}: "
+            f"Qty={row.quantity_mt}, "
+            f"Sell={row.sell_price}{'🔒' if sell_locked else ''}, "
+            f"Buy={row.buy_price}{'🔒' if buy_locked else ''}, "
+            f"Max={row.maximum_mt}"
+        )
+
     return snapshot
 
-
+def parse_city_image(img_cv, city_name: str) -> CitySnapshot:
+    """Función principal que usa el parser mejorado de regiones fijas."""
+    return parse_city_image_fixed_regions(img_cv, city_name)
 
 def parse_easydock_image(image_path: str, location_name: str) -> list[dict]:
     """
@@ -241,17 +412,21 @@ def build_trade_catalog(
     easydock_rows:  list[dict],
 ) -> dict[str, dict[str, dict]]:
     """
+    CRITICAL FIX: Properly labels buy/sell prices:
+    - sell_price: What YOU pay to BUY from city (city selling price)
+    - buy_price: What city PAYS YOU when you sell (city buying price)
+    
     Returns:
         catalog[city_name][commodity] = {
-            "sell_price":    int | None,  # price WE pay to buy from this city
-            "buy_price":     int | None,  # price city pays US when we sell
-            "sell_capacity": int,         # MT available for us to purchase
-            "buy_capacity":  int,         # MT city will accept from us
+            "sell_price":    int | None,  # Price to BUY from city
+            "buy_price":     int | None,  # Price city pays when you SELL
+            "sell_capacity": int,         # MT available for purchase
+            "buy_capacity":  int,         # MT city will accept
         }
 
-    Mercantile Loop:
-        Source city  → use sell_price   (Selling CR/MT column)
-        Destination  → use buy_price    (Buying CR/MT column)
+    Trade logic:
+        Source city  → use sell_price (you BUY from source)
+        Destination  → use buy_price  (you SELL to destination)
         Profit/MT    = destination.buy_price - source.sell_price
     """
     catalog: dict = {}
@@ -260,13 +435,12 @@ def build_trade_catalog(
     for snap in city_snapshots:
         city = catalog.setdefault(snap.city_name, {})
         for row in snap.commodities:
-            # EXTRAER SOLO EL VALOR NUMÉRICO PARA EL OPTIMIZADOR
             city[row.commodity] = {
-                "sell_price": row.sell_price, # El optimizador espera el int directo
-                "buy_price":  row.buy_price,
-                "sell_capacity": row.sell_capacity,
-                "buy_capacity":  row.maximum_mt,
-                "sell_locked": row.sell_locked, # Guardar por separado
+                "sell_price": row.sell_price,      # What YOU pay to BUY
+                "buy_price":  row.buy_price,       # What city PAYS YOU
+                "sell_capacity": row.sell_capacity, # MT you can buy
+                "buy_capacity":  row.buy_capacity,  # MT city will buy
+                "sell_locked": row.sell_locked,
                 "buy_locked": row.buy_locked
             }
 
@@ -324,6 +498,11 @@ def get_flight_time(origin: str, destination: str) -> float:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def find_trade_opportunities(catalog, ship_capacity, budget=None):
+    """
+    CRITICAL FIX: Correct profit calculation
+    Profit = destination.buy_price - source.sell_price
+    (You BUY at source, SELL at destination)
+    """
     opps = []
     for s_name, s_data in catalog.items():
         for d_name, d_data in catalog.items():
@@ -332,25 +511,34 @@ def find_trade_opportunities(catalog, ship_capacity, budget=None):
                 if comm not in d_data: continue
                 d_info = d_data[comm]
                 
-                sp = s_info["sell_price"]
-                bp = d_info["buy_price"]
-                if sp is None or sp <= 0 or bp is None or bp <= sp: 
+                # CRITICAL FIX: Correct price assignment
+                source_sell = s_info["sell_price"]  # What you PAY to buy from source
+                dest_buy = d_info["buy_price"]      # What destination PAYS you
+                
+                if source_sell is None or source_sell <= 0:
+                    continue
+                if dest_buy is None or dest_buy <= 0:
+                    continue
+                if dest_buy <= source_sell:  # No profit
                     continue
                 
-                profit_mt = bp - sp
+                profit_mt = dest_buy - source_sell  # FIXED: destination pays - source cost
                 avail = min(s_info["sell_capacity"], d_info["buy_capacity"], ship_capacity)
                 
-                # Ahora la división es segura porque sp > 0
                 if budget: 
-                    avail = min(avail, budget // sp)
+                    avail = min(avail, budget // source_sell)
                 
                 if avail > 0:
                     opps.append({
-                        "commodity": comm, "source": s_name, "destination": d_name,
-                        "source_selling": sp, "destination_buying": bp,
-                        "profit_per_mt": profit_mt, "source_available": s_info["sell_capacity"],
+                        "commodity": comm, 
+                        "source": s_name, 
+                        "destination": d_name,
+                        "source_selling": source_sell,      # You BUY at this price
+                        "destination_buying": dest_buy,     # Destination PAYS this
+                        "profit_per_mt": profit_mt,
+                        "source_available": s_info["sell_capacity"],
                         "destination_capacity": d_info["buy_capacity"],
-                        "travel_time": round(TAKEOFF_TIME + 50 / SPEED_UNITS_PER_MIN + LANDING_TIME, 1) # Simplified
+                        "travel_time": round(TAKEOFF_TIME + 50 / SPEED_UNITS_PER_MIN + LANDING_TIME, 1)
                     })
     return opps
 
@@ -375,7 +563,10 @@ def assign_grades(opportunities, ship_capacity, budget=None, is_rental=False, re
 
 def compute_trade_routes(catalog, origin, allowed_commodities,
                          ship_capacity, budget, max_hops=5, top_n=20) -> list:
-    """Multi-hop chained route optimizer."""
+    """
+    Multi-hop chained route optimizer.
+    FIXED: Uses correct buy/sell price logic.
+    """
     locations = [loc for loc in catalog if loc != origin]
     all_routes, seen = [], set()
 
@@ -388,31 +579,31 @@ def compute_trade_routes(catalog, origin, allowed_commodities,
             if not s_data or not d_data:
                 continue
             
-            # EXTRAER VALORES: Maneja tanto diccionarios como números directos
-            sp = s_data["sell_price"]["value"] if isinstance(s_data["sell_price"], dict) else s_data["sell_price"]
-            dp = d_data["buy_price"]["value"] if isinstance(d_data["buy_price"], dict) else d_data["buy_price"]
+            # CRITICAL FIX: Correct price extraction
+            source_sell = s_data.get("sell_price")  # What you pay to BUY
+            dest_buy = d_data.get("buy_price")      # What dest PAYS you
             
-            # Validaciones de seguridad
-            sp = sp or 0
-            dp = dp or 0
-            if sp <= 0 or dp <= 0: continue
+            if not source_sell or source_sell <= 0: continue
+            if not dest_buy or dest_buy <= 0: continue
             
-            ppm = dp - sp
+            ppm = dest_buy - source_sell  # FIXED: Correct profit calc
             if ppm <= 0: continue
             
             avail = s_data.get("sell_capacity", 0)
             cap   = d_data.get("buy_capacity",  0)
             if avail <= 0 or cap <= 0: continue
             
-            max_by_budget = int(budget / sp) if budget and sp > 0 else float("inf")
+            max_by_budget = int(budget / source_sell) if budget and source_sell > 0 else float("inf")
             qty    = max(min(ship_capacity, avail, cap, max_by_budget), 0)
             if qty <= 0: continue
             
-            cost   = qty * sp
+            cost   = qty * source_sell
             profit = qty * ppm
             if best is None or profit > best["profit"]:
                 best = dict(commodity=commodity, src=src, dst=dst,
-                            buy_price=sp, sell_price=dp, profit_per_mt=ppm,
+                            buy_price=source_sell,   # You BUY at source
+                            sell_price=dest_buy,     # You SELL at destination
+                            profit_per_mt=ppm,
                             qty=qty, cost=cost, profit=profit,
                             roi=(profit/cost*100) if cost else 0,
                             flight_min=travel_time)
@@ -458,7 +649,6 @@ def calculate_macro_data(catalog: dict, opportunities: list) -> dict:
     city_profits, city_commodities, city_lucrative = {}, {}, {}
     for op in opportunities:
         src = op["source"]
-        # Ensure we don't crash if total_profit is missing or 0
         p = op.get("total_profit", 0) 
         
         city_profits.setdefault(src, 0)
@@ -487,13 +677,8 @@ def calculate_macro_data(catalog: dict, opportunities: list) -> dict:
                 continue
             item = data[commodity]
             
-            # EXTRACT THE VALUE from the price dictionary
             sp = item.get("sell_price")
             bp = item.get("buy_price")
-
-            # Si sp o bp vienen como diccionarios (de la lógica de snapshots), extraer el valor
-            if isinstance(sp, dict): sp = sp.get("value")
-            if isinstance(bp, dict): bp = bp.get("value")
             
             if sp and sp > 0 and item.get("sell_capacity", 0) > 0:
                 sellers.append({"city": city, "price": sp, "capacity": item["sell_capacity"]})
@@ -621,61 +806,36 @@ def sanitize_sheet_name(name: str) -> str:
 # LAYER 4 — SHEET WRITERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _write_cities_sheet(wb, city_snapshots: list[CitySnapshot]):
-    """
-    Cities sheet layout:
-      Columns: Commodity | Sell Price (our cost) | Buy Price (our revenue)
-               | Sell Capacity | Buy Capacity | City
-
-    Market Summary sub-table at bottom for footer data (MT/CR totals).
-    No legacy Tax / Fee / Distance columns.
-    """
+def _write_cities_sheet(wb, city_snapshots):
     ws = wb.create_sheet("Cities")
-    headers = ["City", "Commodity", "Sell Price (CR/MT)", "Buy Price (CR/MT)",
-               "Sell Capacity (MT)", "Buy Capacity (MT)", "Sell Locked", "Buy Locked"]
+
+    headers = ["City", "Commodity", "Quantity", "Reserve", "Sell Price (You Pay)", "Buy Price (City Pays)", "Max"]
     ws.append(headers)
     _style_header_row(ws[1])
 
-    alt = PatternFill(start_color="E6E6FA", end_color="E6E6FA", fill_type="solid")
-    row_i = 2
     for snap in city_snapshots:
-        for cr in snap.commodities:
-            ws.append([
-                snap.city_name,
-                cr.commodity,
-                cr.sell_price,
-                cr.buy_price,
-                cr.sell_capacity,
-                cr.buy_capacity,
-                "🔒" if cr.sell_locked else "",
-                "🔒" if cr.buy_locked  else "",
-            ])
-            if row_i % 2 == 0:
-                for cell in ws[row_i]:
-                    cell.fill = alt
-            row_i += 1
+        city_name = snap.city_name
+        city_dict = {c.commodity: c for c in snap.commodities}
 
-    # ── Market Summary sub-table ──────────────────────────────────────────────
-    footers = [(snap.city_name, snap.footer) for snap in city_snapshots if snap.footer]
-    if footers:
-        ws.append([])
-        ws.append(["── Market Summary (Totals) ──"])
-        _style_section_title(ws[ws.max_row])
-        ws.append(["City", "MT Occupied", "MT Available", "MT Free", "CR Balance"])
-        _style_header_row(ws[ws.max_row])
-        for city_name, f in footers:
-            mt_free = f.mt_available - f.mt_occupied
-            ws.append([city_name, f.mt_occupied, f.mt_available, mt_free, f.cr_balance])
-            cur = ws.max_row
-            cf  = get_city_fill(city_name)
-            c   = ws.cell(row=cur, column=1)
-            c.fill = cf
-            c.font = Font(color=_contrast(cf.start_color.rgb), bold=True)
-            if f.mt_available and f.mt_occupied / f.mt_available > 0.9:
-                for col in range(2, 5):
-                    ws.cell(row=cur, column=col).fill = PatternFill(
-                        start_color="FF0000", end_color="FF0000", fill_type="solid")
-                    ws.cell(row=cur, column=col).font = Font(color="FFFFFF", bold=True)
+        for commodity in COMMODITY_ORDER:
+            if commodity not in city_dict:
+                continue
+
+            row = city_dict[commodity]
+
+            # Formateamos los precios para añadir (Locked) solo en la vista de Excel
+            display_sell = f"{row.sell_price} (Locked)" if row.sell_locked and row.sell_price else row.sell_price
+            display_buy = f"{row.buy_price} (Locked)" if row.buy_locked and row.buy_price else row.buy_price
+
+            ws.append([
+                city_name,
+                commodity,
+                row.quantity_mt,
+                row.reserve_mt,
+                display_sell,
+                display_buy,
+                row.maximum_mt,
+            ])
 
     _auto_size_columns(ws)
 
@@ -684,13 +844,12 @@ def _write_opportunities_sheet(ws, opportunities: list[dict],
                                 is_rental: bool, rental_cost_per_day: Optional[int],
                                 ship_capacity: int):
     """
-    Global Opportunities tab — every profitable A→B route, already graded.
-    No Tax / Fee / Distance ghost columns.
+    FIXED: Column headers now clearly indicate the correct buy/sell direction
     """
     cols = [
         "Grade", "Commodity",
-        "Source City", "Buy Price (CR/MT)",          # sell_price = our cost
-        "Destination City", "Sell Price (CR/MT)",     # buy_price  = our revenue
+        "Source City", "Buy From Source (CR/MT)",    # What YOU pay to buy
+        "Destination City", "Sell To Dest (CR/MT)",  # What destination pays YOU
         "Profit/MT (CR)",
         "Src Stock (MT)", "Dst Capacity (MT)",
         "MT Loaded", "Trip Cost (CR)", "Trip Profit (CR)", "Trip ROI (%)",
@@ -712,9 +871,9 @@ def _write_opportunities_sheet(ws, opportunities: list[dict],
             grade,
             op["commodity"],
             op["source"],
-            op["source_selling"],
+            op["source_selling"],      # You BUY at this price
             op["destination"],
-            op["destination_buying"],
+            op["destination_buying"],  # Destination PAYS you this
             op["profit_per_mt"],
             op["source_available"],
             op["destination_capacity"],
@@ -848,8 +1007,7 @@ def _write_macro_sheet(wb, macro_data: dict):
 
     ws.append([])
     _section("BEST SELLERS AND BUYERS BY COMMODITY")
-    for commodity in COMMODITY_CATEGORIES:   # ← driven by single constant
-        # Obtiene el color hexadecimal del registro dinámico
+    for commodity in COMMODITY_CATEGORIES:
         color_fill = get_commodity_fill(commodity)
         color = color_fill.start_color.rgb if color_fill.start_color else "E6E6FA"
         ws.append([])
@@ -1052,6 +1210,86 @@ def _prompt_max_hops() -> int:
         print("  Enter a number between 2 and 5.")
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CALIBRATION TOOL
+# ─────────────────────────────────────────────────────────────────────────────
+
+def calibrate_regions(image_path: str):
+    """
+    Herramienta interactiva para calibrar las regiones de extracción OCR.
+    Muestra la imagen y permite ajustar las coordenadas visualmente.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    
+    img = cv2.imread(image_path)
+    if img is None:
+        print(f"Error: No se pudo cargar {image_path}")
+        return
+    
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    h, w = img.shape[:2]
+    
+    print(f"\nImagen cargada: {w}x{h} píxeles")
+    print("\nEsta herramienta te ayudará a identificar las coordenadas correctas.")
+    print("Observa la imagen y las regiones marcadas.\n")
+    
+    # Coordenadas de ejemplo (ajusta estos valores)
+    regions = {
+        "Sell Price": {"x_pct": 0.42, "width_pct": 0.08},
+        "Buy Price": {"x_pct": 0.54, "width_pct": 0.08},
+        "Quantity": {"x_pct": 0.62, "width_pct": 0.08},
+        "Maximum": {"x_pct": 0.70, "width_pct": 0.08},
+    }
+    
+    fig, ax = plt.subplots(1, 1, figsize=(15, 10))
+    ax.imshow(img_rgb)
+    
+    # Dibujar rectángulos para cada región
+    colors = ['red', 'green', 'blue', 'yellow']
+    y_start_pct = 0.25
+    row_height_pct = 0.025
+    
+    for i, commodity in enumerate(COMMODITY_CATEGORIES):
+        y = int(h * (y_start_pct + i * row_height_pct * 1.2))
+        
+        for (name, region), color in zip(regions.items(), colors):
+            x = int(w * region['x_pct']) - int(w * region['width_pct'] / 2)
+            width = int(w * region['width_pct'])
+            height = int(h * row_height_pct)
+            
+            rect = patches.Rectangle(
+                (x, y), width, height,
+                linewidth=2, edgecolor=color, facecolor='none'
+            )
+            ax.add_patch(rect)
+            
+            if i == 0:  # Solo etiquetar la primera fila
+                ax.text(x + width/2, y - 10, name, 
+                       color=color, ha='center', fontsize=10, weight='bold')
+    
+    # Añadir etiquetas de commodities
+    for i, commodity in enumerate(COMMODITY_CATEGORIES):
+        y = int(h * (y_start_pct + i * row_height_pct * 1.2))
+        ax.text(10, y + int(h * row_height_pct / 2), commodity,
+               color='white', fontsize=9, weight='bold',
+               bbox=dict(boxstyle='round', facecolor='black', alpha=0.7))
+    
+    plt.title("Regiones de extracción OCR - Verifica si coinciden con los datos", fontsize=14)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig('calibration_preview.png', dpi=150, bbox_inches='tight')
+    print("\n✓ Imagen de calibración guardada como 'calibration_preview.png'")
+    print("\nRevisa el archivo y ajusta los valores en el código si es necesario:")
+    print(f"  - col_sell_price_pct: {regions['Sell Price']['x_pct']}")
+    print(f"  - col_buy_price_pct: {regions['Buy Price']['x_pct']}")
+    print(f"  - col_quantity_pct: {regions['Quantity']['x_pct']}")
+    print(f"  - col_maximum_pct: {regions['Maximum']['x_pct']}")
+    print(f"  - start_y_pct: {y_start_pct}")
+    print(f"  - row_spacing (cell_height + offset): {row_height_pct}")
+    
+    plt.show()
+
+# ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1154,21 +1392,29 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
             "max_hops":            _prompt_max_hops(),
         }
 
-# ── Process images ────────────────────────────────────────────────────────
+    # ── Process images ────────────────────────────────────────────────────────
     load_color_maps()
 
     if not os.path.exists(image_folder):
         print(f"\n✗  Folder '{image_folder}' not found.")
         return
 
-    easydock_rows = [] # <--- Añade esta línea
+    easydock_rows = []
     city_snapshots_dict: dict[str, CitySnapshot] = {}    
     
     print(f"\n  Scanning folder: {image_folder}...")
 
     for filename in sorted(os.listdir(image_folder)):
-        if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):
+        # 1. Filtro de extensión
+        if not filename.lower().endswith((".png", ".jpg", ".jpeg")):
             continue
+
+        # --- NUEVO FILTRO DE PREFIJO ---
+        # Ignoramos archivos 'FULL' para evitar ruido en el OCR y priorizamos 'END'
+        if filename.upper().startswith("FULL_"):
+            logger.info(f"Omitiendo archivo de inventario completo: {filename}")
+            continue
+        # -------------------------------
 
         image_path = os.path.join(image_folder, filename)
         img_cv = cv2.imread(image_path)
@@ -1176,19 +1422,31 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
         if img_cv is None:
             continue
 
-        # Lógica de detección de ciudad mejorada
         target_city = None
         base_name = filename.upper()
-
-        for city in CITY_LIST:
-            if city.upper() in base_name:
-                target_city = city
-                break
+        
+        # Lógica simplificada: Detectar ciudad solo si el archivo es END_ o directo
+        # Buscamos el patrón "END_NombreCiudad_1.png"
+        match = re.search(r"END_([A-Za-z0-9\s]+)_\d+", filename, re.IGNORECASE)
+        if match:
+            city_candidate = match.group(1).strip()
+            for city in CITY_LIST:
+                if city.upper() == city_candidate.upper():
+                    target_city = city
+                    break
+        
+        # Si no tiene el formato END_, buscamos la palabra clave en el nombre
+        if not target_city:
+            for city in CITY_LIST:
+                if city.upper() in base_name:
+                    target_city = city
+                    break
         
         if not target_city:
+            logger.warning(f"No se pudo identificar la ciudad en el archivo: {filename}")
             continue
 
-        # Procesar la imagen
+        # Proceder con el procesamiento...
         snap = parse_city_image(img_cv, target_city)
         
         if snap.commodities:
@@ -1227,7 +1485,7 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
         ship_capacity=ship_capacity, 
         budget=budget,
         is_rental=is_rental, 
-        rental_cost_per_day=ship_rental_cost # Aquí es donde fallaba antes
+        rental_cost_per_day=ship_rental_cost
     )
     graded_opps.sort(key=lambda x: x.get("_profit_trip", 0), reverse=True)
 
@@ -1242,7 +1500,7 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
     save_to_excel(
         city_snapshots      = city_snapshots,
         easydock_rows       = easydock_rows,
-        opportunities       = graded_opps,       # global — all cities
+        opportunities       = graded_opps,
         catalog             = catalog,
         selected_ship       = selected_ship,
         ship_capacity       = ship_capacity,
@@ -1258,7 +1516,6 @@ def main(image_folder, selected_ship=None, output_file="final_trade.xlsx",
 
 
 if __name__ == "__main__":
-    # 1. Configuramos el parser fuera del try para que los errores de argumentos (--help, etc) funcionen normal
     parser = argparse.ArgumentParser(description="Rise TVP Trade Route Optimizer")
     parser.add_argument("--images",     default="images",           help="Image folder path")
     parser.add_argument("--ship",       default=None,               help="Ship name")
@@ -1268,12 +1525,19 @@ if __name__ == "__main__":
     parser.add_argument("--origin",     default=None,               help="Origin city")
     parser.add_argument("--mode",       default="regular",
                         choices=["regular", "city", "route"],       help="Analysis mode")
+    parser.add_argument("--calibrate",  default=None,               help="Path to image for calibration")
     
     args = parser.parse_args()
 
-    # 2. Envolvemos la ejecución principal en el bloque de seguridad
+    # Modo calibración
+    if args.calibrate:
+        print("\n=== MODO CALIBRACIÓN ===")
+        calibrate_regions(args.calibrate)
+        sys.exit(0)
+
+    # Modo normal
     try:
-        logger.info("--- Iniciando optimizador Rise TVP ---")
+        logger.info("--- Iniciando optimizador Rise TVP (Versión Mejorada) ---")
         
         main(
             args.images, 
@@ -1288,7 +1552,6 @@ if __name__ == "__main__":
         logger.info("--- Proceso finalizado con éxito ---")
 
     except Exception as e:
-        # Esto escribirá el error exacto en debug_log.txt y en la consola
         logger.error(f"FALLO CRÍTICO EN EL SCRIPT: {str(e)}", exc_info=True)
         print("\n" + "="*50)
         print(" SE HA DETECTADO UN ERROR. REVISA 'debug_log.txt'")
